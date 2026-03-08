@@ -1,0 +1,17 @@
+//
+//  PressableCardStyle.swift
+//  StayConnected
+//
+//  Created by Anuj Patel on 1/27/26.
+//
+
+import SwiftUI
+
+struct PressableCardStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .opacity(configuration.isPressed ? 0.96 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
