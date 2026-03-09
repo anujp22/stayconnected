@@ -5,17 +5,21 @@
 //  Created by Anuj Patel on 8/27/25.
 //
 
-import SwiftUI
 import CoreData
+import SwiftUI
 
 struct ContentView: View {
+    // MARK: - Environment
     @Environment(\.managedObjectContext) private var viewContext
 
+    // MARK: - Fetch Request
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
+        animation: .default
+    )
     private var items: FetchedResults<Item>
 
+    // MARK: - View
     var body: some View {
         NavigationView {
             List {
@@ -42,6 +46,7 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Actions
     private func addItem() {
         withAnimation {
             let newItem = Item(context: viewContext)
@@ -74,6 +79,7 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Formatters
 private let itemFormatter: DateFormatter = {
     let formatter = DateFormatter()
     formatter.dateStyle = .short
