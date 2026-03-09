@@ -68,6 +68,11 @@
 		6AA9DADD2E8A2CD80016CA81 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
 		6AC020202F5C99BA00A2D6D3 /* SummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryView.swift; sourceTree = "<group>"; };
 		6AC0F19A2F5D246C00D107F1 /* ContactHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactHistoryView.swift; sourceTree = "<group>"; };
+		6AC0F1A02F5E7FBB00D107F1 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = README.md; sourceTree = "<group>"; };
+		6AC0F1A32F5E845A00D107F1 /* home.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = home.png; sourceTree = "<group>"; };
+		6AC0F1A42F5E845A00D107F1 /* pool.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = pool.png; sourceTree = "<group>"; };
+		6AC0F1A52F5E845A00D107F1 /* settings.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = settings.png; sourceTree = "<group>"; };
+		6AC0F1A62F5E845A00D107F1 /* summary.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = summary.png; sourceTree = "<group>"; };
 		6AD1D9372E5FEC5B00960473 /* StayConnected.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StayConnected.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6AD1D9492E5FEC5D00960473 /* StayConnectedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StayConnectedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6AD1D9532E5FEC5D00960473 /* StayConnectedUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StayConnectedUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -136,9 +141,22 @@
 			path = Components;
 			sourceTree = "<group>";
 		};
+		6AC0F1A22F5E836B00D107F1 /* screenshots */ = {
+			isa = PBXGroup;
+			children = (
+				6AC0F1A32F5E845A00D107F1 /* home.png */,
+				6AC0F1A42F5E845A00D107F1 /* pool.png */,
+				6AC0F1A52F5E845A00D107F1 /* settings.png */,
+				6AC0F1A62F5E845A00D107F1 /* summary.png */,
+			);
+			path = screenshots;
+			sourceTree = "<group>";
+		};
 		6AD1D92E2E5FEC5B00960473 = {
 			isa = PBXGroup;
 			children = (
+				6AC0F1A22F5E836B00D107F1 /* screenshots */,
+				6AC0F1A02F5E7FBB00D107F1 /* README.md */,
 				6AD1D97B2E600F7E00960473 /* Views */,
 				6AD1D97A2E600F7400960473 /* ViewModels */,
 				6AD1D9792E600F6A00960473 /* Services */,
