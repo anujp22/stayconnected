@@ -1,14 +1,13 @@
-//
-//  Persistence.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 8/27/25.
-//
-
 import CoreData
 
+// MARK: - Persistence Controller
+
 struct PersistenceController {
+    // MARK: - Shared Instance
+
     static let shared = PersistenceController()
+
+    // MARK: - Preview
 
     @MainActor
     static let preview: PersistenceController = {
@@ -29,7 +28,11 @@ struct PersistenceController {
         return result
     }()
 
+    // MARK: - Properties
+
     let container: NSPersistentContainer
+
+    // MARK: - Initialization
 
     init(inMemory: Bool = false) {
         container = NSPersistentContainer(name: "StayConnected")

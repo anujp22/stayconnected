@@ -1,9 +1,3 @@
-//
-//  StayConnectedApp.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 8/27/25.
-//
 
 import CoreData
 import SwiftUI

@@ -1,10 +1,3 @@
-//
-//  NotificationsService.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 1/25/26.
-//
-
 import Foundation
 import UserNotifications
 
@@ -63,6 +56,9 @@ enum NotificationsService {
 
         try await center.add(request)
     }
+
+    // MARK: - Reminder Copy
+
     static func reminderMessage(
         hasCompletedConnectionToday: Bool,
         currentStreak: Int,

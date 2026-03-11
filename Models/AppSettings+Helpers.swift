@@ -1,10 +1,3 @@
-//
-//  AppSettings+Helpers.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 9/28/25.
-//
-
 import CoreData
 
 // MARK: - AppSettings Helpers

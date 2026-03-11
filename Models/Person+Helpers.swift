@@ -1,10 +1,3 @@
-//
-//  Person+Helpers.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 8/28/25.
-//
-
 import CoreData
 
 // MARK: - Person Helpers

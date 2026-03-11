@@ -1,10 +1,3 @@
-//
-//  ContactsService.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 8/28/25.
-//
-
 import Contacts
 
 // MARK: - Supporting Types
