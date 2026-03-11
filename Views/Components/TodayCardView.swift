@@ -1,6 +1,5 @@
 import SwiftUI
 
-
 struct TodayCardView: View {
     // MARK: - Properties
 

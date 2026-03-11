@@ -1,10 +1,3 @@
-//
-//  TodayViewModel.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 9/28/25.
-//
-
 import Contacts
 import CoreData
 import Foundation
@@ -13,19 +6,23 @@ import UIKit
 @MainActor
 final class TodayViewModel: ObservableObject {
     // MARK: - Published
+
     @Published var todayPicks: [Person] = []
     @Published var warningText: String?
 
     // MARK: - Dependencies
+
     private let ctx: NSManagedObjectContext
     private let selector = SelectionService()
 
     // MARK: - Initialization
+
     init(context: NSManagedObjectContext) {
         self.ctx = context
     }
 
     // MARK: - Public API
+
     func monthRolloverIfNeeded() throws {
         let lastMonthKey = "lastMonthKey"
         let now = Date()
@@ -36,6 +33,7 @@ final class TodayViewModel: ObservableObject {
         guard lastKey != nowKey else { return }
 
         let req: NSFetchRequest<Person> = Person.fetchRequest()
+
         let people = try ctx.fetch(req)
         people.forEach { $0.timesPickedThisMonth = 0 }
         try ctx.save()
@@ -98,6 +96,7 @@ final class TodayViewModel: ObservableObject {
     func poolCount() throws -> Int {
         let req: NSFetchRequest<Person> = Person.fetchRequest()
         req.predicate = NSPredicate(format: "isInPool == YES")
+
         return try ctx.count(for: req)
     }
 
@@ -139,13 +138,17 @@ final class TodayViewModel: ObservableObject {
     }
 
     // MARK: - Private Helpers
+
     private func loadPersons(with ids: [String]) -> [Person] {
         // fetch by identifier list, preserving order as best we can
         let req: NSFetchRequest<Person> = Person.fetchRequest()
         req.predicate = NSPredicate(format: "contactIdentifier IN %@", ids)
+
         let people = (try? ctx.fetch(req)) ?? []
+
         // order to match ids
         let dict = Dictionary(uniqueKeysWithValues: people.map { ($0.contactIdentifier ?? "", $0) })
+
         return ids.compactMap { dict[$0] }
     }
 }

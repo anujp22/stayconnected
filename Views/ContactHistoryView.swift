@@ -1,20 +1,17 @@
-//
-//  ContactHistoryView.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 3/7/26.
-//
-
-import SwiftUI
 import CoreData
+import SwiftUI
 
 struct ContactHistoryView: View {
+    // MARK: - Environment
     @Environment(\.managedObjectContext) private var context
 
+    // MARK: - Properties
     let person: Person
 
+    // MARK: - State
     @State private var events: [ConnectionEvent] = []
 
+    // MARK: - View
     var body: some View {
         List {
             Section {
@@ -83,6 +80,7 @@ struct ContactHistoryView: View {
         }
     }
 
+    // MARK: - Private Helpers
     private func refreshEvents() {
         let identifier = person.contactIdentifier ?? ""
         guard !identifier.isEmpty else {
@@ -102,6 +100,7 @@ struct ContactHistoryView: View {
     }
 }
 
+// MARK: - Preview
 #Preview {
     Text("ContactHistoryView preview requires a Person instance.")
 }

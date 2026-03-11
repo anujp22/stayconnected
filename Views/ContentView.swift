@@ -1,9 +1,3 @@
-//
-//  ContentView.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 8/27/25.
-//
 
 import CoreData
 import SwiftUI
@@ -87,6 +81,8 @@ private let itemFormatter: DateFormatter = {
     return formatter
 }()
 
+# MARK: - Preview
 #Preview {
     ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }
+

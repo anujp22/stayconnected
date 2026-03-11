@@ -1,9 +1,11 @@
+import Contacts
+import CoreData
 import SwiftUI
 import UIKit
-import CoreData
-import Contacts
 
+// MARK: - Supporting Types
 private struct HomePick: Equatable {
+    // MARK: - Properties
     let identifier: String
     let displayName: String
     let phoneNumber: String?
@@ -11,12 +13,15 @@ private struct HomePick: Equatable {
     let hasConnectedBefore: Bool
 }
 
+// MARK: - Contact Avatar Inline View
 private struct ContactAvatarInlineView: View {
+    // MARK: - Properties
     let contactIdentifier: String
     let displayName: String
 
     @State private var image: UIImage?
 
+    // MARK: - View
     var body: some View {
         Group {
             if let image {
@@ -40,7 +45,8 @@ private struct ContactAvatarInlineView: View {
             await loadThumbnailIfNeeded()
         }
     }
-
+    
+    // MARK: - Private Helpers
     private func loadThumbnailIfNeeded() async {
         guard image == nil, !contactIdentifier.isEmpty else { return }
 
@@ -48,9 +54,13 @@ private struct ContactAvatarInlineView: View {
         let keys: [CNKeyDescriptor] = [CNContactThumbnailImageDataKey as CNKeyDescriptor]
         let predicate = CNContact.predicateForContacts(withIdentifiers: [contactIdentifier])
 
-        guard let contact = try? store.unifiedContacts(matching: predicate, keysToFetch: keys).first,
-              let data = contact.thumbnailImageData,
-              let uiImage = UIImage(data: data) else {
+        guard
+            let contact = try? store
+                .unifiedContacts(matching: predicate, keysToFetch: keys)
+                .first,
+            let data = contact.thumbnailImageData,
+            let uiImage = UIImage(data: data)
+        else {
             return
         }
 
@@ -403,6 +413,7 @@ struct HomeView: View {
         }
     }
 
+    // MARK: - Derived Values
     private var monthlyProgress: Double {
         guard monthlyTargetCount > 0 else { return 0 }
         return min(Double(monthlyGeneratedCount) / Double(monthlyTargetCount), 1.0)
@@ -468,6 +479,7 @@ struct HomeView: View {
         refreshMonthlyProgress()
     }
 
+    // MARK: - Actions
     private func generateTodayPick() {
         do {
             let settings = try AppSettings.fetchOrCreate(in: context)
@@ -659,6 +671,7 @@ struct HomeView: View {
     }
 }
 
+// MARK: - Preview
 
 #Preview {
     HomeView(selectedTab: .constant(.home))

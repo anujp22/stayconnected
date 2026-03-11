@@ -1,4 +1,3 @@
-
 import CoreData
 import Foundation
 
@@ -21,6 +20,7 @@ final class PoolViewModel: ObservableObject {
     func load() {
         let req: NSFetchRequest<Person> = Person.fetchRequest()
         req.predicate = NSPredicate(format: "isInPool == YES")
+
         req.sortDescriptors = [
             NSSortDescriptor(key: "isPinned", ascending: false),
             NSSortDescriptor(key: "displayName", ascending: true)
@@ -34,14 +34,13 @@ final class PoolViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Derived Values
+    // MARK: - Filtering
     var filteredPeople: [Person] {
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return people }
 
         return people.filter { person in
             let name = (person.displayName ?? "").lowercased()
-            // you can also add contactIdentifier search if useful:
             let id = (person.contactIdentifier ?? "").lowercased()
 
             return name.contains(q) || id.contains(q)

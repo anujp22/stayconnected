@@ -1,17 +1,10 @@
-//
-//  SummaryView.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 3/7/26.
-//
-
-import SwiftUI
 import CoreData
+import SwiftUI
 
 struct SummaryView: View {
-
+    // MARK: - Environment
     @Environment(\.managedObjectContext) private var context
-
+    // MARK: - State
     @State private var poolCount = 0
     @State private var calledThisMonth = 0
     @State private var remainingThisMonth = 0
@@ -21,12 +14,11 @@ struct SummaryView: View {
     @State private var currentStreak = 0
     @State private var longestStreak = 0
     @State private var selectedPerson: Person?
-
+    // MARK: - View
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Summary")
                             .font(.largeTitle)
@@ -249,8 +241,8 @@ struct SummaryView: View {
         }
     }
 
-    // MARK: Data Logic
-
+    // MARK: - Private Helpers
+    
     private func refreshSummary() {
         let calendar = Calendar.current
         let now = Date()
@@ -343,7 +335,7 @@ struct SummaryView: View {
         }
     }
 
-
+    // MARK: - Derived Values
     private var currentStreakLabel: String {
         streakLabel(for: currentStreak)
     }
@@ -411,13 +403,15 @@ struct SummaryView: View {
     }
 }
 
-// MARK: Reusable Card
+// MARK: - Reusable Cards
 
 struct StatCard: View {
+    // MARK: - Properties
     let title: String
     let value: String
     let color: Color
 
+    // MARK: - View
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
@@ -443,14 +437,17 @@ struct StatCard: View {
 }
 
 struct SummarySectionCard<Content: View>: View {
+    // MARK: - Properties
     let title: String
     private let content: Content
 
+    // MARK: - Initialization
     init(title: String, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
     }
 
+    // MARK: - View
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
@@ -472,6 +469,7 @@ struct SummarySectionCard<Content: View>: View {
     }
 }
 
+// MARK: - Preview
 
 #Preview {
     SummaryView()

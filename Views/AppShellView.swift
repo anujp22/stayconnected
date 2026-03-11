@@ -1,16 +1,10 @@
-//
-//  AppShellView.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 1/30/26.
-//
-
 import CoreData
 import SwiftUI
 
 // MARK: - App Tabs
 
 enum AppTab: Hashable {
+    // MARK: - Cases
     case home
     case pool
     case summary

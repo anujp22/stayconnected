@@ -1,10 +1,3 @@
-//
-//  TodayView.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 8/28/25.
-//
-
 import CoreData
 import SwiftUI
 
@@ -160,6 +153,7 @@ struct TodayView: View {
     }
 }
 
+// MARK: - Preview
 #Preview {
     TodayView(context: PersistenceController.shared.container.viewContext)
 }

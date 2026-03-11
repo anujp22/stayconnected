@@ -1,10 +1,3 @@
-//
-//  ContactRowCard.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 1/27/26.
-//
-
 import SwiftUI
 
 struct ContactRowCard: View {
@@ -74,6 +67,8 @@ struct ContactRowCard: View {
         .buttonStyle(PressableCardStyle())
     }
 }
+
+// MARK: - Preview
 
 #Preview {
     VStack(spacing: 12) {

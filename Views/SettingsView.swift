@@ -1,10 +1,3 @@
-//
-//  SettingsView.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 8/28/25.
-//
-
 import CoreData
 import SwiftUI
 import UIKit
@@ -224,10 +217,14 @@ struct SettingsView: View {
     }
 }
 
+// MARK: - Subviews
+
 private struct SettingsCard<Content: View>: View {
+    // MARK: - Properties
     let title: String
     @ViewBuilder var content: Content
 
+    // MARK: - View
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
@@ -249,9 +246,11 @@ private struct SettingsCard<Content: View>: View {
 }
 
 private struct SettingsRow: View {
+    // MARK: - Properties
     let title: String
     let value: String
 
+    // MARK: - View
     var body: some View {
         HStack {
             Text(title)
@@ -264,6 +263,7 @@ private struct SettingsRow: View {
     }
 }
 
+// MARK: - Preview
 #Preview {
     SettingsView(context: PersistenceController.shared.container.viewContext)
 }

@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Primary
 
 struct PrimaryPillButtonStyle: ButtonStyle {
+    // MARK: - ButtonStyle
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
@@ -22,6 +23,7 @@ struct PrimaryPillButtonStyle: ButtonStyle {
 // MARK: - Secondary
 
 struct SecondaryPillButtonStyle: ButtonStyle {
+    // MARK: - ButtonStyle
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)

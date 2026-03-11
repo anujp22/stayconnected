@@ -1,10 +1,3 @@
-//
-//  SettingsViewModel.swift
-//  StayConnected
-//
-//  Created by Anuj Patel on 1/24/26.
-//
-
 import CoreData
 import Foundation
 
@@ -60,6 +53,8 @@ final class SettingsViewModel: ObservableObject {
             try ctx.save()
         }
     }
+
+    // MARK: - Private Helpers
 
     private func scheduleReminderIfNeeded() throws {
         if remindersEnabled {

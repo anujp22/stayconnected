@@ -1,5 +1,6 @@
 import Contacts
 import SwiftUI
+import UIKit
 
 struct PoolView: View {
     // MARK: - Environment
@@ -197,6 +198,7 @@ struct PoolView: View {
             showConnectError = true
             return
         }
+
         openURL(url)
     }
 
@@ -204,6 +206,8 @@ struct PoolView: View {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
     }
+
+    // MARK: - Actions
 
     private func togglePinned(_ person: Person) {
         person.isPinned.toggle()
