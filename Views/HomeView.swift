@@ -156,6 +156,7 @@ struct HomeView: View {
                         Spacer()
                     }
                     .padding()
+                    .presentationDetents([.medium])
                 }
 
                 if shouldShowProgressBanner {
@@ -259,6 +260,8 @@ struct HomeView: View {
                                             }
                                             .buttonStyle(.borderedProminent)
                                             .tint(Color("Success"))
+                                            .accessibilityLabel("Call or message \(pick.displayName)")
+                                            .accessibilityHint("Opens contact options for this person.")
 
                                             Button {
                                                 lightHaptic()
@@ -269,6 +272,8 @@ struct HomeView: View {
                                             }
                                             .buttonStyle(.bordered)
                                             .tint(Color("BrandPrimary"))
+                                            .accessibilityLabel("Mark \(pick.displayName) as connected")
+                                            .accessibilityHint("Records that you reached out to this person today.")
                                         }
                                     }
                                     .padding(.vertical, 14)
@@ -359,6 +364,7 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(SecondaryPillButtonStyle())
+                .accessibilityHint("Open your saved relationship pool.")
 
                 Spacer()
 
@@ -371,6 +377,7 @@ struct HomeView: View {
                         Label("Generate", systemImage: "sparkles")
                     }
                     .buttonStyle(PrimaryPillButtonStyle())
+                    .accessibilityHint("Create today’s picks using your current rules.")
 
                     Button(action: {
                         lightHaptic()
@@ -380,6 +387,7 @@ struct HomeView: View {
                     }
                     .buttonStyle(SecondaryPillButtonStyle())
                     .disabled(!hasTodayPick)
+                    .accessibilityHint("Remove today’s picks so you can generate a fresh set.")
                 }
                 .confirmationDialog(
                     "Reset today’s pick?",
@@ -449,14 +457,7 @@ struct HomeView: View {
 
     // MARK: - Private Helpers
     private func refreshTodayPicks() {
-        let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: Date())
-
-        let dailyRequest: NSFetchRequest<DailyPick> = DailyPick.fetchRequest()
-        dailyRequest.fetchLimit = 1
-        dailyRequest.predicate = NSPredicate(format: "date == %@", startOfToday as NSDate)
-
-        guard let dailyPick = try? context.fetch(dailyRequest).first,
+        guard let dailyPick = try? DailyPick.fetchFor(date: Date(), in: context),
               let identifiers = dailyPick.contactIdentifiers as? [String],
               !identifiers.isEmpty else {
             todayPicks = []
@@ -513,6 +514,9 @@ struct HomeView: View {
             let identifiers = picks.compactMap { $0.contactIdentifier }
             _ = try DailyPick.upsertForToday(with: identifiers, in: context)
             try context.save()
+            Task {
+                try? await NotificationsService.syncReminderIfNeeded(in: context)
+            }
             refreshTodayPicks()
         } catch {
             connectErrorMessage = "Couldn’t generate today’s pick."
@@ -525,6 +529,9 @@ struct HomeView: View {
             if let dailyPick = try DailyPick.fetchFor(date: Date(), in: context) {
                 context.delete(dailyPick)
                 try context.save()
+            }
+            Task {
+                try? await NotificationsService.syncReminderIfNeeded(in: context)
             }
             refreshTodayPicks()
         } catch {
@@ -539,6 +546,7 @@ struct HomeView: View {
 
             let now = Date()
             person.lastCalledAt = now
+            person.timesPickedThisMonth += 1
 
             if !hasLoggedConnectionToday(for: pick.identifier) {
                 let event = ConnectionEvent(context: context)
@@ -549,6 +557,9 @@ struct HomeView: View {
             }
 
             try context.save()
+            Task {
+                try? await NotificationsService.syncReminderIfNeeded(in: context)
+            }
             refreshTodayPicks()
             refreshMonthlyProgress()
         } catch {

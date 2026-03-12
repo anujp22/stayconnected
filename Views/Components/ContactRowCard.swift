@@ -65,6 +65,17 @@ struct ContactRowCard: View {
             )
         }
         .buttonStyle(PressableCardStyle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(phoneAccessibilityLabel)
+        .accessibilityHint("Opens actions for this contact.")
+    }
+
+    private var phoneAccessibilityLabel: String {
+        if let phone, !phone.isEmpty {
+            return "\(name). \(subtitle). \(phone)."
+        }
+
+        return "\(name). \(subtitle)."
     }
 }
 

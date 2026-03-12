@@ -3,6 +3,8 @@ import SwiftUI
 import UIKit
 
 struct SettingsView: View {
+    @Environment(\.managedObjectContext) private var context
+
     // MARK: - State
 
     @State private var showSavedToast = false
@@ -114,6 +116,7 @@ struct SettingsView: View {
 
                     SettingsCard(title: "Reminder") {
                         Toggle("Daily reminder", isOn: $viewModel.remindersEnabled)
+                            .accessibilityHint("Enable a notification that reflects your current progress for the day.")
 
                         DatePicker(
                             "Time",
@@ -121,6 +124,25 @@ struct SettingsView: View {
                             displayedComponents: .hourAndMinute
                         )
                         .disabled(!viewModel.remindersEnabled)
+                        .accessibilityHint("Choose when StayConnected should remind you each day.")
+
+                        Divider().opacity(0.2)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Preview")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color("TextPrimary"))
+
+                            Text(viewModel.reminderPreviewTitle)
+                                .font(.subheadline)
+                                .foregroundStyle(Color("TextPrimary"))
+
+                            Text(viewModel.reminderPreviewBody)
+                                .font(.footnote)
+                                .foregroundStyle(Color("TextSecondary"))
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(viewModel.reminderPreviewTitle). \(viewModel.reminderPreviewBody)")
                     }
 
                     Spacer(minLength: 90)
@@ -130,12 +152,16 @@ struct SettingsView: View {
             .background(Color("Background").ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .task {
-                try? viewModel.load()
+                do {
+                    try viewModel.load()
 
-                initialPicksPerDay = viewModel.picksPerDay
-                initialMinGapDays = viewModel.minGapDays
-                initialRemindersEnabled = viewModel.remindersEnabled
-                initialReminderTime = viewModel.reminderTime
+                    initialPicksPerDay = viewModel.picksPerDay
+                    initialMinGapDays = viewModel.minGapDays
+                    initialRemindersEnabled = viewModel.remindersEnabled
+                    initialReminderTime = viewModel.reminderTime
+                } catch {
+                    // Intentionally left blank.
+                }
             }
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 10) {
@@ -144,13 +170,13 @@ struct SettingsView: View {
                             do {
                                 try viewModel.save()
                                 try viewModel.clearTodayIfNeeded()
+                                try viewModel.refreshReminderPreview()
 
                                 if viewModel.remindersEnabled {
                                     let allowed = try await NotificationsService.requestPermissionIfNeeded()
                                     if allowed {
-                                        try await NotificationsService.scheduleDailyReminder(
-                                            at: viewModel.reminderTime
-                                        )
+                                        try await NotificationsService.syncReminderIfNeeded(in: context)
+                                        try viewModel.refreshReminderPreview()
                                         showSavedToast = true
                                         successHaptic()
                                         initialPicksPerDay = viewModel.picksPerDay
@@ -161,6 +187,7 @@ struct SettingsView: View {
                                         viewModel.remindersEnabled = false
                                         try viewModel.save()
                                         await NotificationsService.cancelDailyReminder()
+                                        try viewModel.refreshReminderPreview()
                                         showSavedToast = true
                                         showNotificationPermissionAlert = true
                                         successHaptic()
@@ -171,6 +198,7 @@ struct SettingsView: View {
                                     }
                                 } else {
                                     await NotificationsService.cancelDailyReminder()
+                                    try viewModel.refreshReminderPreview()
                                     showSavedToast = true
                                     successHaptic()
                                     initialPicksPerDay = viewModel.picksPerDay
@@ -189,6 +217,7 @@ struct SettingsView: View {
                     .buttonStyle(PrimaryPillButtonStyle())
                     .disabled(!hasChanges)
                     .opacity(hasChanges ? 1.0 : 0.6)
+                    .accessibilityHint("Save your current frequency, reminder, and appearance preferences.")
 
                     Text("Changes apply immediately.")
                         .font(.footnote)
@@ -213,8 +242,15 @@ struct SettingsView: View {
             } message: {
                 Text("Daily reminders are turned off in iOS Settings. Enable notifications for StayConnected to receive reminders.")
             }
+            .onChange(of: viewModel.remindersEnabled) { _, _ in
+                try? viewModel.refreshReminderPreview()
+            }
+            .onChange(of: viewModel.reminderTime) { _, _ in
+                try? viewModel.refreshReminderPreview()
+            }
         }
     }
+
 }
 
 // MARK: - Subviews

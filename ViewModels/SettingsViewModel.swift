@@ -10,6 +10,8 @@ final class SettingsViewModel: ObservableObject {
     @Published var minGapDays: Int = 20
     @Published var remindersEnabled: Bool = false
     @Published var reminderTime: Date = Calendar.current.date(bySettingHour: 10, minute: 0, second: 0, of: Date()) ?? Date()
+    @Published var reminderPreviewTitle = "Today’s picks are ready"
+    @Published var reminderPreviewBody = "Open StayConnected to see who to call today."
 
     // MARK: - Dependencies
 
@@ -32,6 +34,7 @@ final class SettingsViewModel: ObservableObject {
         if let t = s.reminderTime {
             reminderTime = t
         }
+        try refreshReminderPreview()
     }
 
     func save() throws {
@@ -42,9 +45,7 @@ final class SettingsViewModel: ObservableObject {
         s.remindersEnabled = remindersEnabled
         s.reminderTime = reminderTime
         try ctx.save()
-
-        // Update reminder schedule after saving settings
-        try scheduleReminderIfNeeded()
+        try refreshReminderPreview()
     }
     
     func clearTodayIfNeeded() throws {
@@ -54,61 +55,10 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Private Helpers
-
-    private func scheduleReminderIfNeeded() throws {
-        if remindersEnabled {
-            let (title, body) = try computeReminderMessage()
-
-            Task {
-                try? await NotificationsService.scheduleDailyReminder(
-                    at: reminderTime,
-                    title: title,
-                    body: body
-                )
-            }
-        } else {
-            Task {
-                await NotificationsService.cancelDailyReminder()
-            }
-        }
-    }
-
-    private func computeReminderMessage() throws -> (String, String) {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-
-        // Did user complete a connection today?
-        let eventRequest: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
-        eventRequest.predicate = NSPredicate(format: "date >= %@", today as NSDate)
-        let eventsToday = try ctx.count(for: eventRequest)
-
-        // How many picks exist today?
-        let picksCount: Int
-        if let dp = try DailyPick.fetchFor(date: Date(), in: ctx) {
-            let rawIdentifiers: Any = dp.contactIdentifiers as Any
-
-            if let identifiers = rawIdentifiers as? [String] {
-                picksCount = identifiers.count
-            } else if let identifiers = rawIdentifiers as? NSArray {
-                picksCount = identifiers.count
-            } else {
-                picksCount = 0
-            }
-        } else {
-            picksCount = 0
-        }
-
-        // Streak calculation placeholder (can be improved later)
-        let currentStreak = 0
-
-        let message = NotificationsService.reminderMessage(
-            hasCompletedConnectionToday: eventsToday > 0,
-            currentStreak: currentStreak,
-            picksCount: picksCount
-        )
-
-        return (message.title, message.body)
+    func refreshReminderPreview() throws {
+        let preview = try NotificationsService.reminderPreview(in: ctx)
+        reminderPreviewTitle = preview.title
+        reminderPreviewBody = preview.body
     }
 
     // MARK: - Derived Values

@@ -66,6 +66,8 @@ struct PoolView: View {
                             TextField("Search contacts", text: $viewModel.searchText)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled(true)
+                                .accessibilityLabel("Search contacts")
+                                .accessibilityHint("Filter your pool by name.")
 
                             if !viewModel.searchText.isEmpty {
                                 Button {
@@ -153,6 +155,7 @@ struct PoolView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(SecondaryPillButtonStyle())
+                    .accessibilityHint("Opens the contact picker so you can add people to your pool.")
                     .padding(.top, 6)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 24, trailing: 16))
                     .listRowSeparator(.hidden)
@@ -525,5 +528,4 @@ private struct MultiContactPickerSheet: View {
         }
     }
 }
-
 

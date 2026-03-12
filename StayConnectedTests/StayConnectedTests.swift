@@ -10,8 +10,35 @@ import Testing
 
 struct StayConnectedTests {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    @MainActor
+    @Test func reminderPreviewPromptsSetupWhenPoolIsEmpty() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+
+        let preview = try NotificationsService.reminderPreview(in: context)
+
+        #expect(preview.title == "Build your pool first")
+    }
+
+    @MainActor
+    @Test func reminderPreviewAcknowledgesCompletedConnectionToday() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let person = Person(context: context)
+        person.id = UUID()
+        person.contactIdentifier = "contact-1"
+        person.displayName = "Taylor"
+        person.isInPool = true
+
+        let event = ConnectionEvent(context: context)
+        event.id = UUID()
+        event.contactIdentifier = "contact-1"
+        event.contactNameSnapshot = "Taylor"
+        event.date = Date()
+
+        try context.save()
+
+        let preview = try NotificationsService.reminderPreview(in: context)
+
+        #expect(preview.title == "You’re all set for today")
     }
 
 }

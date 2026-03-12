@@ -82,15 +82,30 @@ final class TodayViewModel: ObservableObject {
         _ = try DailyPick.upsertForToday(with: ids, in: ctx)
 
         try ctx.save()
+        Task {
+            try? await NotificationsService.syncReminderIfNeeded(in: ctx)
+        }
     }
 
     // MARK: - Actions
 
     // Marking called updates lastCalledAt and the monthly count.
     func markCalled(_ person: Person) throws {
-        person.lastCalledAt = Date()
+        let now = Date()
+        person.lastCalledAt = now
         person.timesPickedThisMonth += 1
+        if let identifier = person.contactIdentifier,
+           !hasLoggedConnectionToday(for: identifier) {
+            let event = ConnectionEvent(context: ctx)
+            event.id = UUID()
+            event.date = now
+            event.contactIdentifier = identifier
+            event.contactNameSnapshot = person.displayName
+        }
         try ctx.save()
+        Task {
+            try? await NotificationsService.syncReminderIfNeeded(in: ctx)
+        }
     }
 
     func poolCount() throws -> Int {
@@ -107,6 +122,9 @@ final class TodayViewModel: ObservableObject {
         }
 
         todayPicks = []
+        Task {
+            try? await NotificationsService.syncReminderIfNeeded(in: ctx)
+        }
     }
 
     func call(_ person: Person) {
@@ -150,5 +168,24 @@ final class TodayViewModel: ObservableObject {
         let dict = Dictionary(uniqueKeysWithValues: people.map { ($0.contactIdentifier ?? "", $0) })
 
         return ids.compactMap { dict[$0] }
+    }
+
+    private func hasLoggedConnectionToday(for identifier: String) -> Bool {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: Date())
+        guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else {
+            return false
+        }
+
+        let request: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
+        request.fetchLimit = 1
+        request.predicate = NSPredicate(
+            format: "contactIdentifier == %@ AND date >= %@ AND date < %@",
+            identifier,
+            startOfDay as NSDate,
+            endOfDay as NSDate
+        )
+
+        return ((try? ctx.count(for: request)) ?? 0) > 0
     }
 }
