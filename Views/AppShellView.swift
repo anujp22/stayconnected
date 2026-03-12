@@ -45,6 +45,6 @@ struct AppShellView: View {
                 }
                 .tag(AppTab.settings)
         }
-        .tint(Color("Primary"))
+        .tint(Color("BrandPrimary"))
     }
 }

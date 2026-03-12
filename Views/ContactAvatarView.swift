@@ -18,13 +18,13 @@ struct ContactAvatarView: View {
             } else {
                 ZStack {
                     Circle()
-                        .fill(Color("Primary").opacity(0.14))
+                        .fill(Color("BrandPrimary").opacity(0.14))
 
                     Image(systemName: "person.fill")
                         .resizable()
                         .scaledToFit()
                         .padding(8)
-                        .foregroundStyle(Color("Primary"))
+                        .foregroundStyle(Color("BrandPrimary"))
                 }
             }
         }

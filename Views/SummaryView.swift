@@ -37,7 +37,7 @@ struct SummaryView: View {
                         StatCard(
                             title: "Current Streak",
                             value: currentStreakLabel,
-                            color: Color("Primary")
+                            color: Color("BrandPrimary")
                         )
 
                         StatCard(
@@ -52,11 +52,11 @@ struct SummaryView: View {
                         StatCard(
                             title: "People in Pool",
                             value: "\(poolCount)",
-                            color: Color("Primary")
+                            color: Color("BrandPrimary")
                         )
 
                         StatCard(
-                            title: "Called This Month",
+                            title: "Connected This Month",
                             value: "\(calledThisMonth)",
                             color: Color("Success")
                         )
@@ -69,10 +69,10 @@ struct SummaryView: View {
                     }
                     .padding(.top, 20)
 
-                    // MARK: Called This Month
-                    SummarySectionCard(title: "Called This Month") {
+                    // MARK: Connected This Month
+                    SummarySectionCard(title: "Connected This Month") {
                         if calledPeople.isEmpty {
-                            Text("No one marked as called yet this month.")
+                            Text("No one marked as connected yet this month.")
                                 .font(.subheadline)
                                 .foregroundStyle(Color("TextSecondary"))
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -277,7 +277,17 @@ struct SummaryView: View {
             .sorted { ($0.displayName ?? "") < ($1.displayName ?? "") }
 
         calledThisMonth = calledPeople.count
-        remainingThisMonth = max(poolCount - calledThisMonth, 0)
+        let settings: AppSettings?
+        do {
+            settings = try AppSettings.fetchOrCreate(in: context)
+        } catch {
+            settings = nil
+        }
+
+        let picksPerDay = max(Int(settings?.picksPerDay ?? 0), 0)
+        let daysInMonth = calendar.range(of: .day, in: .month, for: now)?.count ?? 30
+        let monthlyTarget = picksPerDay * daysInMonth
+        remainingThisMonth = max(monthlyTarget - calledThisMonth, 0)
 
         let recentEventsRequest: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
         recentEventsRequest.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]

@@ -1,4 +1,3 @@
-
 import CoreData
 import SwiftUI
 
@@ -14,7 +13,7 @@ struct StayConnectedApp: App {
         WindowGroup {
             AppShellView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
-                .tint(Color("Primary"))
+                .tint(Color("BrandPrimary"))
                 .preferredColorScheme(preferredColorScheme)
         }
     }

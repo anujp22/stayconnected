@@ -31,7 +31,7 @@ private struct ContactAvatarInlineView: View {
             } else {
                 ZStack {
                     Circle()
-                        .fill(Color("Primary").opacity(0.14))
+                        .fill(Color("BrandPrimary").opacity(0.14))
                     Text(initials(from: displayName))
                         .font(.caption)
                         .fontWeight(.semibold)
@@ -41,7 +41,8 @@ private struct ContactAvatarInlineView: View {
         }
         .frame(width: 42, height: 42)
         .clipShape(Circle())
-        .task {
+        .task(id: contactIdentifier) {
+            image = nil
             await loadThumbnailIfNeeded()
         }
     }
@@ -93,7 +94,7 @@ struct HomeView: View {
     @State private var selectedPick: HomePick?
     @State private var showResetConfirm = false
     @State private var showingPickDetails = false
-    @State private var monthlyGeneratedCount = 0
+    @State private var monthlyConnectedCount = 0
     @State private var monthlyTargetCount = 0
     @State private var monthlyExpectedByToday = 0
 
@@ -173,12 +174,12 @@ struct HomeView: View {
                                 Spacer()
                                 Image(systemName: "sparkles")
                                     .font(.title3)
-                                    .foregroundStyle(Color("Primary"))
+                                    .foregroundStyle(Color("BrandPrimary"))
                             }
 
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(alignment: .firstTextBaseline) {
-                                    Text("\(monthlyGeneratedCount) / \(monthlyTargetCount) picks this month")
+                                    Text("\(monthlyConnectedCount) / \(monthlyTargetCount) connections this month")
                                         .font(.subheadline)
                                         .fontWeight(.medium)
                                         .foregroundStyle(Color("TextPrimary"))
@@ -199,7 +200,7 @@ struct HomeView: View {
 
                         if hasTodayPick {
                             VStack(spacing: 0) {
-                                ForEach(Array(todayPicks.enumerated()), id: \.offset) { entry in
+                                ForEach(Array(todayPicks.enumerated()), id: \.element.identifier) { entry in
                                     let index = entry.offset
                                     let pick = entry.element
 
@@ -228,13 +229,13 @@ struct HomeView: View {
                                                             .fill(
                                                                 pick.hasConnectedBefore
                                                                 ? Color("Success").opacity(0.16)
-                                                                : Color("Primary").opacity(0.14)
+                                                                : Color("BrandPrimary").opacity(0.14)
                                                             )
                                                     )
                                                     .foregroundStyle(
                                                         pick.hasConnectedBefore
                                                         ? Color("Success")
-                                                        : Color("Primary")
+                                                        : Color("BrandPrimary")
                                                     )
                                             }
 
@@ -267,7 +268,7 @@ struct HomeView: View {
                                                     .font(.subheadline)
                                             }
                                             .buttonStyle(.bordered)
-                                            .tint(Color("Primary"))
+                                            .tint(Color("BrandPrimary"))
                                         }
                                     }
                                     .padding(.vertical, 14)
@@ -327,7 +328,7 @@ struct HomeView: View {
                                 LinearGradient(
                                     colors: [
                                         Color("Card"),
-                                        Color("Primary").opacity(0.05)
+                                        Color("BrandPrimary").opacity(0.05)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -416,19 +417,19 @@ struct HomeView: View {
     // MARK: - Derived Values
     private var monthlyProgress: Double {
         guard monthlyTargetCount > 0 else { return 0 }
-        return min(Double(monthlyGeneratedCount) / Double(monthlyTargetCount), 1.0)
+        return min(Double(monthlyConnectedCount) / Double(monthlyTargetCount), 1.0)
     }
 
     private var progressMessage: String {
         guard monthlyTargetCount > 0 else { return "No target yet" }
 
-        if monthlyGeneratedCount >= monthlyTargetCount {
+        if monthlyConnectedCount >= monthlyTargetCount {
             return "Target reached"
         }
 
-        if monthlyGeneratedCount > monthlyExpectedByToday {
+        if monthlyConnectedCount > monthlyExpectedByToday {
             return "Ahead of pace"
-        } else if monthlyGeneratedCount == monthlyExpectedByToday {
+        } else if monthlyConnectedCount == monthlyExpectedByToday {
             return "On pace"
         } else {
             return "Behind pace"
@@ -440,7 +441,7 @@ struct HomeView: View {
         case "Target reached":
             return Color("Success")
         case "Ahead of pace", "On pace":
-            return Color("Primary")
+            return Color("BrandPrimary")
         default:
             return Color("Warning")
         }
@@ -549,10 +550,12 @@ struct HomeView: View {
 
             try context.save()
             refreshTodayPicks()
+            refreshMonthlyProgress()
         } catch {
             connectErrorMessage = "Couldn’t mark this contact as called."
             showConnectError = true
         }
+        
     }
 
     private func hasLoggedConnectionToday(for identifier: String) -> Bool {
@@ -587,7 +590,7 @@ struct HomeView: View {
         do {
             settings = try AppSettings.fetchOrCreate(in: context)
         } catch {
-            monthlyGeneratedCount = 0
+            monthlyConnectedCount = 0
             monthlyTargetCount = 0
             monthlyExpectedByToday = 0
             return
@@ -597,18 +600,15 @@ struct HomeView: View {
         monthlyTargetCount = picksPerDay * daysInMonth
         monthlyExpectedByToday = min(picksPerDay * dayOfMonth, monthlyTargetCount)
 
-        let request: NSFetchRequest<DailyPick> = DailyPick.fetchRequest()
+        let request: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
         request.predicate = NSPredicate(format: "date >= %@", startOfMonth as NSDate)
 
-        guard let monthlyPicks = try? context.fetch(request) else {
-            monthlyGeneratedCount = 0
+        guard let monthlyConnections = try? context.fetch(request) else {
+            monthlyConnectedCount = 0
             return
         }
 
-        monthlyGeneratedCount = monthlyPicks.reduce(0) { partial, dailyPick in
-            let ids = dailyPick.contactIdentifiers as? [String]
-            return partial + (ids?.count ?? 0)
-        }
+        monthlyConnectedCount = monthlyConnections.count
     }
 
     private func fetchPerson(with identifier: String) -> Person? {

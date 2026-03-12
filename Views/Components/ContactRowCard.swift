@@ -16,11 +16,11 @@ struct ContactRowCard: View {
         Button(action: onTap) {
             HStack(spacing: 14) {
                 Circle()
-                    .fill(Color("Primary").opacity(0.16))
+                    .fill(Color("BrandPrimary").opacity(0.16))
                     .frame(width: 44, height: 44)
                     .overlay(
                         Image(systemName: "person.fill")
-                            .foregroundStyle(Color("Primary"))
+                            .foregroundStyle(Color("BrandPrimary"))
                     )
 
                 VStack(alignment: .leading, spacing: 3) {

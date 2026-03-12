@@ -19,11 +19,11 @@ struct TodayCardView: View {
                 HStack(spacing: 16) {
                     // Avatar placeholder (we’ll swap to contact image later)
                     Circle()
-                        .fill(Color("Primary").opacity(0.16))
+                        .fill(Color("BrandPrimary").opacity(0.16))
                         .frame(width: 56, height: 56)
                         .overlay(
                             Image(systemName: "person.fill")
-                                .foregroundStyle(Color("Primary"))
+                                .foregroundStyle(Color("BrandPrimary"))
                         )
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -47,7 +47,7 @@ struct TodayCardView: View {
 
                     Image(systemName: "chevron.right")
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Color("Primary").opacity(0.9))
+                        .foregroundStyle(Color("BrandPrimary").opacity(0.9))
                 }
             }
             .padding()
