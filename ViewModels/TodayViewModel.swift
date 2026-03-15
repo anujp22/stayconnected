@@ -57,21 +57,52 @@ final class TodayViewModel: ObservableObject {
         }
 
         // A) try to reuse an existing DailyPick
-        if let existing = try DailyPick.fetchFor(date: Date(), in: ctx),
-           let ids = existing.contactIdentifiers as? [String] {
-            self.todayPicks = loadPersons(with: ids)
+        let existingPicks = try loadTodayPicks()
+        if !existingPicks.isEmpty {
+            self.todayPicks = existingPicks
             return
         }
 
         // B) else generate new picks
+        let picks = try generateTodayPicks(from: pool, settings: settings)
+        self.todayPicks = picks
+    }
+
+    func loadTodayPicks() throws -> [Person] {
+        guard let existing = try DailyPick.fetchFor(date: Date(), in: ctx),
+              let ids = existing.contactIdentifiers as? [String] else {
+            return []
+        }
+
+        return loadPersons(with: ids)
+    }
+
+    @discardableResult
+    func generateTodayPicks() throws -> [Person] {
+        let settings = try AppSettings.fetchOrCreate(in: ctx)
+        let req: NSFetchRequest<Person> = Person.fetchRequest()
+        req.predicate = NSPredicate(format: "isInPool == YES")
+        let pool = try ctx.fetch(req)
+
+        let picks = try generateTodayPicks(from: pool, settings: settings)
+        todayPicks = picks
+        return picks
+    }
+
+    func person(for identifier: String) throws -> Person? {
+        try Person.fetchByContactIdentifier(identifier, in: ctx)
+    }
+
+    private func generateTodayPicks(
+        from pool: [Person],
+        settings: AppSettings
+    ) throws -> [Person] {
         let picks = selector.pickToday(
             from: pool,
             picksPerDay: Int(settings.picksPerDay),
             minGapDays: Int(settings.minGapDays),
             today: Date()
         )
-
-        self.todayPicks = picks
 
         // important: set lastPickedAt now so the 20-day rule applies even if user doesn't "Mark Called"
         let now = Date()
@@ -85,6 +116,8 @@ final class TodayViewModel: ObservableObject {
         Task {
             try? await NotificationsService.syncReminderIfNeeded(in: ctx)
         }
+
+        return picks
     }
 
     // MARK: - Actions

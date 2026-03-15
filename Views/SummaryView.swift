@@ -4,6 +4,7 @@ import SwiftUI
 struct SummaryView: View {
     // MARK: - Environment
     @Environment(\.managedObjectContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
     // MARK: - State
     @State private var poolCount = 0
     @State private var calledThisMonth = 0
@@ -11,6 +12,7 @@ struct SummaryView: View {
     @State private var calledPeople: [Person] = []
     @State private var neverContactedPeople: [Person] = []
     @State private var recentEvents: [ConnectionEvent] = []
+    @State private var peopleByIdentifier: [String: Person] = [:]
     @State private var currentStreak = 0
     @State private var longestStreak = 0
     @State private var selectedPerson: Person?
@@ -160,7 +162,7 @@ struct SummaryView: View {
                             VStack(spacing: 0) {
                                 ForEach(recentEvents, id: \.objectID) { event in
                                     if let identifier = event.contactIdentifier,
-                                       let person = fetchPerson(with: identifier) {
+                                       let person = peopleByIdentifier[identifier] {
                                         Button {
                                             selectedPerson = person
                                         } label: {
@@ -235,7 +237,11 @@ struct SummaryView: View {
             .navigationDestination(item: $selectedPerson) { person in
                 ContactHistoryView(person: person)
             }
-            .onAppear {
+            .task {
+                refreshSummary()
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .active else { return }
                 refreshSummary()
             }
         }
@@ -264,6 +270,14 @@ struct SummaryView: View {
         }
 
         poolCount = pool.count
+        peopleByIdentifier = Dictionary(
+            uniqueKeysWithValues: pool.compactMap { person in
+                guard let identifier = person.contactIdentifier, !identifier.isEmpty else {
+                    return nil
+                }
+                return (identifier, person)
+            }
+        )
 
         calledPeople = pool
             .filter { person in
@@ -304,26 +318,12 @@ struct SummaryView: View {
 
         do {
             let allEvents = try context.fetch(allEventsRequest)
-            let streaks = calculateStreaks(from: allEvents)
+            let streaks = NotificationsService.streaks(from: allEvents)
             currentStreak = streaks.current
             longestStreak = streaks.longest
         } catch {
             currentStreak = 0
             longestStreak = 0
-        }
-    }
-
-    private func fetchPerson(with identifier: String) -> Person? {
-        guard !identifier.isEmpty else { return nil }
-
-        let request: NSFetchRequest<Person> = Person.fetchRequest()
-        request.fetchLimit = 1
-        request.predicate = NSPredicate(format: "contactIdentifier == %@", identifier)
-
-        do {
-            return try context.fetch(request).first
-        } catch {
-            return nil
         }
     }
 
@@ -356,60 +356,6 @@ struct SummaryView: View {
 
     private func streakLabel(for value: Int) -> String {
         value == 1 ? "1 day" : "\(value) days"
-    }
-
-    private func calculateStreaks(from events: [ConnectionEvent]) -> (current: Int, longest: Int) {
-        let calendar = Calendar.current
-
-        let uniqueDays: Set<Date> = Set(
-            events.compactMap { event in
-                guard let date = event.date else { return nil }
-                return calendar.startOfDay(for: date)
-            }
-        )
-
-        guard !uniqueDays.isEmpty else {
-            return (0, 0)
-        }
-
-        let sortedDays = uniqueDays.sorted { $0 > $1 }
-
-        let today = calendar.startOfDay(for: Date())
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
-
-        let startsTodayOrYesterday = uniqueDays.contains(today) || uniqueDays.contains(yesterday)
-
-        var current = 0
-        if startsTodayOrYesterday {
-            var cursor = uniqueDays.contains(today) ? today : yesterday
-
-            while uniqueDays.contains(cursor) {
-                current += 1
-                guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else {
-                    break
-                }
-                cursor = previousDay
-            }
-        }
-
-        var longest = 0
-        var running = 0
-        var previousDay: Date?
-
-        for day in sortedDays {
-            if let previous = previousDay,
-               let expectedPrevious = calendar.date(byAdding: .day, value: -1, to: previous),
-               calendar.isDate(day, inSameDayAs: expectedPrevious) {
-                running += 1
-            } else {
-                running = 1
-            }
-
-            longest = max(longest, running)
-            previousDay = day
-        }
-
-        return (current, longest)
     }
 }
 

@@ -6,6 +6,7 @@ import UserNotifications
 
 enum NotificationsService {
     private static let reminderIdentifier = "daily.reminder"
+    private static let catchUpReminderIdentifier = "daily.reminder.catchup"
 
     // MARK: - Authorization
 
@@ -57,6 +58,39 @@ enum NotificationsService {
         )
 
         try await center.add(request)
+    }
+
+    static func catchUpReminderDate(
+        reminderTime: Date,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Date? {
+        let startOfToday = calendar.startOfDay(for: now)
+        let reminderComponents = calendar.dateComponents([.hour, .minute], from: reminderTime)
+
+        guard let scheduledToday = calendar.date(
+            bySettingHour: reminderComponents.hour ?? 10,
+            minute: reminderComponents.minute ?? 0,
+            second: 0,
+            of: startOfToday
+        ) else {
+            return nil
+        }
+
+        guard now > scheduledToday else {
+            return nil
+        }
+
+        guard let cutoff = calendar.date(bySettingHour: 20, minute: 30, second: 0, of: startOfToday) else {
+            return nil
+        }
+
+        let candidate = now.addingTimeInterval(30 * 60)
+        guard candidate <= cutoff else {
+            return nil
+        }
+
+        return candidate
     }
 
     // MARK: - Reminder Copy
@@ -169,16 +203,119 @@ enum NotificationsService {
             title: preview.title,
             body: preview.body
         )
+
+        await cancelCatchUpReminder()
+
+        let state = try reminderState(in: ctx, now: now)
+        guard !state.hasCompletedConnectionToday, state.picksCount > 0 else {
+            return
+        }
+
+        if let catchUpTime = catchUpReminderDate(reminderTime: reminderTime, now: now) {
+            try await scheduleCatchUpReminder(
+                at: catchUpTime,
+                title: preview.title,
+                body: preview.body
+            )
+        }
     }
 
     // MARK: - Cancellation
 
     static func cancelDailyReminder() async {
         let center = UNUserNotificationCenter.current()
-        center.removePendingNotificationRequests(withIdentifiers: [reminderIdentifier])
+        center.removePendingNotificationRequests(withIdentifiers: [reminderIdentifier, catchUpReminderIdentifier])
+    }
+
+    // MARK: - Shared Insights
+
+    static func streaks(
+        from events: [ConnectionEvent],
+        calendar: Calendar = .current,
+        today: Date = Date()
+    ) -> (current: Int, longest: Int) {
+        let uniqueDays = Set(
+            events.compactMap(\.date).map { calendar.startOfDay(for: $0) }
+        )
+
+        guard !uniqueDays.isEmpty else {
+            return (0, 0)
+        }
+
+        let sortedDays = uniqueDays.sorted(by: >)
+        let startOfToday = calendar.startOfDay(for: today)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: startOfToday) ?? startOfToday
+
+        let current: Int
+        if uniqueDays.contains(startOfToday) || uniqueDays.contains(yesterday) {
+            var streak = 0
+            var cursor = uniqueDays.contains(startOfToday) ? startOfToday : yesterday
+
+            while uniqueDays.contains(cursor) {
+                streak += 1
+                guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else {
+                    break
+                }
+                cursor = previousDay
+            }
+
+            current = streak
+        } else {
+            current = 0
+        }
+
+        var longest = 0
+        var running = 0
+        var previousDay: Date?
+
+        for day in sortedDays {
+            if let previousDay,
+               let expectedPrevious = calendar.date(byAdding: .day, value: -1, to: previousDay),
+               calendar.isDate(day, inSameDayAs: expectedPrevious) {
+                running += 1
+            } else {
+                running = 1
+            }
+
+            longest = max(longest, running)
+            previousDay = day
+        }
+
+        return (current, longest)
     }
 
     // MARK: - Private Helpers
+
+    private static func scheduleCatchUpReminder(
+        at time: Date,
+        title: String,
+        body: String
+    ) async throws {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [catchUpReminderIdentifier])
+
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+
+        let trigger = UNCalendarNotificationTrigger(
+            dateMatching: Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: time),
+            repeats: false
+        )
+        let request = UNNotificationRequest(
+            identifier: catchUpReminderIdentifier,
+            content: content,
+            trigger: trigger
+        )
+
+        try await center.add(request)
+    }
+
+    private static func cancelCatchUpReminder() async {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [catchUpReminderIdentifier])
+    }
 
     private static func reminderState(
         in ctx: NSManagedObjectContext,
@@ -228,42 +365,9 @@ enum NotificationsService {
             picksCount: picksCount,
             completedConnectionsToday: completedConnectionsToday,
             hasCompletedConnectionToday: completedConnectionsToday > 0,
-            currentStreak: currentStreak(from: allEvents, calendar: calendar, today: startOfToday),
+            currentStreak: streaks(from: allEvents, calendar: calendar, today: startOfToday).current,
             daysSinceLastConnection: daysSinceLastConnection
         )
-    }
-
-    private static func currentStreak(
-        from events: [ConnectionEvent],
-        calendar: Calendar,
-        today: Date
-    ) -> Int {
-        let uniqueDays = Set(
-            events.compactMap(\.date).map { calendar.startOfDay(for: $0) }
-        )
-
-        guard !uniqueDays.isEmpty else { return 0 }
-
-        var streak = 0
-        var cursor = today
-
-        if !uniqueDays.contains(cursor) {
-            guard let yesterday = calendar.date(byAdding: .day, value: -1, to: cursor),
-                  uniqueDays.contains(yesterday) else {
-                return 0
-            }
-            cursor = yesterday
-        }
-
-        while uniqueDays.contains(cursor) {
-            streak += 1
-            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else {
-                break
-            }
-            cursor = previousDay
-        }
-
-        return streak
     }
 }
 

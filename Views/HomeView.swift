@@ -85,6 +85,7 @@ struct HomeView: View {
     // MARK: - Environment
     @Environment(\.openURL) private var openURL
     @Environment(\.managedObjectContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
 
     // MARK: - State
     @State private var showConnectSheet = false
@@ -419,6 +420,11 @@ struct HomeView: View {
                     refreshTodayPicks()
                 }
             }
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active {
+                    refreshTodayPicks()
+                }
+            }
         }
     }
 
@@ -457,17 +463,17 @@ struct HomeView: View {
 
     // MARK: - Private Helpers
     private func refreshTodayPicks() {
-        guard let dailyPick = try? DailyPick.fetchFor(date: Date(), in: context),
-              let identifiers = dailyPick.contactIdentifiers as? [String],
-              !identifiers.isEmpty else {
+        let viewModel = TodayViewModel(context: context)
+        let people = (try? viewModel.loadTodayPicks()) ?? []
+        guard !people.isEmpty else {
             todayPicks = []
             selectedPick = nil
             refreshMonthlyProgress()
             return
         }
 
-        todayPicks = identifiers.compactMap { identifier in
-            guard let person = fetchPerson(with: identifier) else { return nil }
+        todayPicks = people.compactMap { person in
+            guard let identifier = person.contactIdentifier else { return nil }
             return HomePick(
                 identifier: identifier,
                 displayName: person.displayName ?? "Unknown",
@@ -484,38 +490,12 @@ struct HomeView: View {
     // MARK: - Actions
     private func generateTodayPick() {
         do {
-            let settings = try AppSettings.fetchOrCreate(in: context)
-
-            let personRequest: NSFetchRequest<Person> = Person.fetchRequest()
-            personRequest.predicate = NSPredicate(format: "isInPool == YES")
-            let pool = try context.fetch(personRequest)
-
-            guard !pool.isEmpty else {
+            let viewModel = TodayViewModel(context: context)
+            let picks = try viewModel.generateTodayPicks()
+            guard !picks.isEmpty else {
                 todayPicks = []
                 selectedPick = nil
                 return
-            }
-
-            let selector = SelectionService()
-            let picks = selector.pickToday(
-                from: pool,
-                picksPerDay: Int(settings.picksPerDay),
-                minGapDays: Int(settings.minGapDays),
-                today: Date()
-            )
-
-            guard !picks.isEmpty else {
-                refreshTodayPicks()
-                return
-            }
-
-            let now = Date()
-            picks.forEach { $0.lastPickedAt = now }
-            let identifiers = picks.compactMap { $0.contactIdentifier }
-            _ = try DailyPick.upsertForToday(with: identifiers, in: context)
-            try context.save()
-            Task {
-                try? await NotificationsService.syncReminderIfNeeded(in: context)
             }
             refreshTodayPicks()
         } catch {
@@ -526,13 +506,8 @@ struct HomeView: View {
 
     private func resetTodayPick() {
         do {
-            if let dailyPick = try DailyPick.fetchFor(date: Date(), in: context) {
-                context.delete(dailyPick)
-                try context.save()
-            }
-            Task {
-                try? await NotificationsService.syncReminderIfNeeded(in: context)
-            }
+            let viewModel = TodayViewModel(context: context)
+            try viewModel.resetTodayPicks()
             refreshTodayPicks()
         } catch {
             connectErrorMessage = "Couldn’t reset today’s pick."
@@ -542,23 +517,9 @@ struct HomeView: View {
 
     private func markPickAsCalled(_ pick: HomePick) {
         do {
-            guard let person = fetchPerson(with: pick.identifier) else { return }
-
-            let now = Date()
-            person.lastCalledAt = now
-            person.timesPickedThisMonth += 1
-
-            if !hasLoggedConnectionToday(for: pick.identifier) {
-                let event = ConnectionEvent(context: context)
-                event.id = UUID()
-                event.date = now
-                event.contactIdentifier = pick.identifier
-                event.contactNameSnapshot = pick.displayName
-            }
-
-            try context.save()
-            Task {
-                try? await NotificationsService.syncReminderIfNeeded(in: context)
+            let viewModel = TodayViewModel(context: context)
+            if let person = try viewModel.person(for: pick.identifier) {
+                try viewModel.markCalled(person)
             }
             refreshTodayPicks()
             refreshMonthlyProgress()
@@ -566,26 +527,6 @@ struct HomeView: View {
             connectErrorMessage = "Couldn’t mark this contact as called."
             showConnectError = true
         }
-        
-    }
-
-    private func hasLoggedConnectionToday(for identifier: String) -> Bool {
-        let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: Date())
-        guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else {
-            return false
-        }
-
-        let request: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
-        request.fetchLimit = 1
-        request.predicate = NSPredicate(
-            format: "contactIdentifier == %@ AND date >= %@ AND date < %@",
-            identifier,
-            startOfDay as NSDate,
-            endOfDay as NSDate
-        )
-
-        return ((try? context.count(for: request)) ?? 0) > 0
     }
 
     private func refreshMonthlyProgress() {
@@ -614,19 +555,12 @@ struct HomeView: View {
         let request: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
         request.predicate = NSPredicate(format: "date >= %@", startOfMonth as NSDate)
 
-        guard let monthlyConnections = try? context.fetch(request) else {
+        guard let monthlyConnections = try? context.count(for: request) else {
             monthlyConnectedCount = 0
             return
         }
 
-        monthlyConnectedCount = monthlyConnections.count
-    }
-
-    private func fetchPerson(with identifier: String) -> Person? {
-        let request: NSFetchRequest<Person> = Person.fetchRequest()
-        request.fetchLimit = 1
-        request.predicate = NSPredicate(format: "contactIdentifier == %@", identifier)
-        return try? context.fetch(request).first
+        monthlyConnectedCount = monthlyConnections
     }
 
     private func fetchPhoneNumber(for identifier: String) -> String? {
