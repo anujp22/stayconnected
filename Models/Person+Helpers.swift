@@ -10,4 +10,12 @@ extension Person {
 
         return try ctx.fetch(req).first
     }
+
+    /// True while the person is snoozed (their `snoozedUntil` is in the future).
+    /// Snoozed people are skipped by the daily selection so a user can gently
+    /// defer someone for a day or a week without removing them from the pool.
+    func isSnoozed(asOf date: Date = Date()) -> Bool {
+        guard let until = snoozedUntil else { return false }
+        return until > date
+    }
 }

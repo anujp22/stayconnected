@@ -63,6 +63,67 @@ struct StayConnectedTests {
     }
 
     @MainActor
+    @Test func selectionServiceSkipsSnoozedContacts() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 3, day: 14, hour: 9))!
+        let service = SelectionService()
+
+        let available = Person(context: context)
+        available.id = UUID()
+        available.displayName = "Available"
+        available.contactIdentifier = "available"
+        available.isInPool = true
+
+        let snoozed = Person(context: context)
+        snoozed.id = UUID()
+        snoozed.displayName = "Snoozed"
+        snoozed.contactIdentifier = "snoozed"
+        snoozed.isInPool = true
+        snoozed.snoozedUntil = calendar.date(byAdding: .day, value: 3, to: now)
+
+        let picks = service.pickToday(
+            from: [available, snoozed],
+            picksPerDay: 2,
+            minGapDays: 7,
+            today: now
+        )
+
+        #expect(picks.map(\.contactIdentifier) == ["available"])
+    }
+
+    @MainActor
+    @Test func snoozePickDefersPersonAndSwapsInReplacement() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let viewModel = TodayViewModel(context: context)
+
+        let settings = try AppSettings.fetchOrCreate(in: context)
+        settings.picksPerDay = 2
+        settings.minGapDays = 7
+
+        for index in 0..<3 {
+            let person = Person(context: context)
+            person.id = UUID()
+            person.displayName = "Person \(index)"
+            person.contactIdentifier = "person-\(index)"
+            person.isInPool = true
+        }
+        try context.save()
+
+        let generated = try viewModel.generateTodayPicks()
+        #expect(generated.count == 2)
+
+        let toSnooze = generated[0]
+        let until = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+        let updated = try viewModel.snoozePick(toSnooze, until: until)
+
+        // Still two picks, the snoozed person is gone, and a fresh one is in.
+        #expect(updated.count == 2)
+        #expect(!updated.contains { $0.objectID == toSnooze.objectID })
+        #expect(toSnooze.isSnoozed(asOf: Date()))
+    }
+
+    @MainActor
     @Test func markCalledLogsOneEventPerContactPerDayButStillUpdatesState() throws {
         let context = PersistenceController(inMemory: true).container.viewContext
         let viewModel = TodayViewModel(context: context)
