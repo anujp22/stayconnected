@@ -104,6 +104,8 @@ struct HomeView: View {
     @State private var showingPickDetails = false
     @State private var monthlyConnectedCount = 0
     @State private var monthlyTargetCount = 0
+    @State private var showSnoozeOptions = false
+    @State private var snoozeTarget: HomePick?
     @State private var poolWarningText: String?
 
     // Remembers the day we last auto-generated (or the user reset) so opening
@@ -300,6 +302,19 @@ struct HomeView: View {
                                             .tint(Color("BrandPrimary"))
                                             .accessibilityLabel("Mark \(pick.displayName) as connected")
                                             .accessibilityHint("Records that you reached out to this person today.")
+
+                                            Button {
+                                                snoozeTarget = pick
+                                                lightHaptic()
+                                                showSnoozeOptions = true
+                                            } label: {
+                                                Image(systemName: "moon.zzz")
+                                                    .font(.subheadline)
+                                            }
+                                            .buttonStyle(.bordered)
+                                            .tint(Color("TextSecondary"))
+                                            .accessibilityLabel("Not today for \(pick.displayName)")
+                                            .accessibilityHint("Gently defers this person and swaps in someone else.")
                                         }
                                     }
                                     .padding(.vertical, 14)
@@ -439,6 +454,21 @@ struct HomeView: View {
                     Button("Cancel", role: .cancel) { }
                 } message: {
                     Text("This will remove today’s saved pick and generate a fresh one the next time you tap Generate.")
+                }
+                .confirmationDialog(
+                    "Not today for \(snoozeTarget?.displayName ?? "this person")?",
+                    isPresented: $showSnoozeOptions,
+                    titleVisibility: .visible
+                ) {
+                    Button("Just for today") {
+                        if let pick = snoozeTarget { snooze(pick, days: 1) }
+                    }
+                    Button("Snooze for a week") {
+                        if let pick = snoozeTarget { snooze(pick, days: 7) }
+                    }
+                    Button("Cancel", role: .cancel) { }
+                } message: {
+                    Text("We’ll gently set them aside and suggest someone else instead.")
                 }
                 .padding(.top, 6)
 
@@ -624,6 +654,25 @@ struct HomeView: View {
             refreshMonthlyProgress()
         } catch {
             connectErrorMessage = "Couldn’t mark this contact as called."
+            showConnectError = true
+        }
+    }
+
+    private func snooze(_ pick: HomePick, days: Int) {
+        do {
+            let viewModel = TodayViewModel(context: context)
+            guard let person = try viewModel.person(for: pick.identifier) else { return }
+
+            // Snooze from the start of the day so "just for today" makes them
+            // eligible again tomorrow, not at the same clock time.
+            let calendar = Calendar.current
+            let base = calendar.startOfDay(for: Date())
+            let until = calendar.date(byAdding: .day, value: days, to: base) ?? Date()
+
+            try viewModel.snoozePick(person, until: until)
+            refreshTodayPicks()
+        } catch {
+            connectErrorMessage = "Couldn’t snooze this pick."
             showConnectError = true
         }
     }
