@@ -40,6 +40,27 @@ struct StayConnectedTests {
         #expect(reloaded.map(\.contactIdentifier) == generated.map(\.contactIdentifier))
     }
 
+    @MainActor
+    @Test func monthRolloverResetsTimesPickedWhenMonthChanges() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let viewModel = TodayViewModel(context: context)
+
+        // Force a stale "last month" so a rollover is guaranteed to run.
+        UserDefaults.standard.set("1900-1", forKey: "lastMonthKey")
+
+        let person = Person(context: context)
+        person.id = UUID()
+        person.displayName = "Rolls Over"
+        person.contactIdentifier = "rolls-over"
+        person.isInPool = true
+        person.timesPickedThisMonth = 5
+        try context.save()
+
+        try viewModel.monthRolloverIfNeeded()
+
+        #expect(person.timesPickedThisMonth == 0)
+    }
+
     @Test func catchUpReminderDateSchedulesThirtyMinutesAfterAMissedReminder() {
         let calendar = Calendar.current
         let reminderTime = calendar.date(from: DateComponents(year: 2026, month: 3, day: 14, hour: 10, minute: 0))!

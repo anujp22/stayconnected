@@ -8,7 +8,6 @@ final class TodayViewModel: ObservableObject {
     // MARK: - Published
 
     @Published var todayPicks: [Person] = []
-    @Published var warningText: String?
 
     // MARK: - Dependencies
 
@@ -39,33 +38,6 @@ final class TodayViewModel: ObservableObject {
         try ctx.save()
 
         UserDefaults.standard.set(nowKey, forKey: lastMonthKey)
-    }
-
-    func loadOrGenerateToday() throws {
-        let settings = try AppSettings.fetchOrCreate(in: ctx)
-
-        // fetch pool
-        let req: NSFetchRequest<Person> = Person.fetchRequest()
-        req.predicate = NSPredicate(format: "isInPool == YES")
-        let pool = try ctx.fetch(req)
-
-        // soft warning if pool small
-        if pool.count < Int(settings.minGapDays) * Int(settings.picksPerDay) {
-            warningText = "Your pool may be too small to always enforce a \(settings.minGapDays)-day gap."
-        } else {
-            warningText = nil
-        }
-
-        // A) try to reuse an existing DailyPick
-        let existingPicks = try loadTodayPicks()
-        if !existingPicks.isEmpty {
-            self.todayPicks = existingPicks
-            return
-        }
-
-        // B) else generate new picks
-        let picks = try generateTodayPicks(from: pool, settings: settings)
-        self.todayPicks = picks
     }
 
     func loadTodayPicks() throws -> [Person] {
@@ -146,6 +118,20 @@ final class TodayViewModel: ObservableObject {
         req.predicate = NSPredicate(format: "isInPool == YES")
 
         return try ctx.count(for: req)
+    }
+
+    /// Returns a soft warning when the pool is too small to reliably enforce
+    /// the configured gap, or `nil` when the pool is empty or large enough.
+    func poolWarning() throws -> String? {
+        let settings = try AppSettings.fetchOrCreate(in: ctx)
+        let count = try poolCount()
+
+        guard count > 0,
+              count < Int(settings.minGapDays) * Int(settings.picksPerDay) else {
+            return nil
+        }
+
+        return "Your pool may be too small to always enforce a \(settings.minGapDays)-day gap."
     }
 
     func resetTodayPicks() throws {
