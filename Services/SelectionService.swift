@@ -11,6 +11,14 @@ struct Candidate {
     let isPinned: Bool
     let timesPickedThisMonth: Int
     let pickedThisMonth: Bool
+    let cadenceDays: Int
+
+    /// How overdue this person is relative to *their own* cadence.
+    /// 1.0 means exactly due; >1 means overdue. Drives ranking so a close
+    /// friend you haven't reached ranks above an acquaintance on schedule.
+    var overdueRatio: Double {
+        Double(daysSinceCall) / Double(max(cadenceDays, 1))
+    }
 }
 
 final class SelectionService {
@@ -50,16 +58,17 @@ final class SelectionService {
                     neverContacted: person.lastCalledAt == nil,
                     isPinned: person.isPinned,
                     timesPickedThisMonth: Int(person.timesPickedThisMonth),
-                    pickedThisMonth: person.timesPickedThisMonth > 0
+                    pickedThisMonth: person.timesPickedThisMonth > 0,
+                    cadenceDays: person.contactCadence.days
                 )
             }
 
         let eligible = candidates.filter { $0.daysSincePick >= minGapDays }
         let fallbackOnly = candidates.filter { $0.daysSincePick < minGapDays }
 
-        // Rank smarter: never-contacted first, then people who have gone the
-        // longest since a real connection, then those not picked as often this
-        // month, then longest wait since they were last surfaced by the app.
+        // Rank smarter: pinned, then never-contacted, then whoever is most
+        // overdue relative to their own cadence, then those not picked as often
+        // this month, then longest wait since they were last surfaced.
         func rank(_ list: [Candidate]) -> [Candidate] {
             list.sorted { a, b in
                 if a.isPinned != b.isPinned {
@@ -70,8 +79,9 @@ final class SelectionService {
                     return a.neverContacted
                 }
 
-                if a.daysSinceCall != b.daysSinceCall {
-                    return a.daysSinceCall > b.daysSinceCall
+                // Most overdue relative to their own cadence comes first.
+                if a.overdueRatio != b.overdueRatio {
+                    return a.overdueRatio > b.overdueRatio
                 }
 
                 if a.timesPickedThisMonth != b.timesPickedThisMonth {
