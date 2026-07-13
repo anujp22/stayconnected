@@ -65,6 +65,16 @@ final class TodayViewModel: ObservableObject {
         try Person.fetchByContactIdentifier(identifier, in: ctx)
     }
 
+    /// Saves a one-line context note for a person ("last talked: her interview").
+    /// An empty note clears it. Kept intentionally to a single free-text line —
+    /// this is a memory jog, not a notes database.
+    func setNote(_ note: String, forContactIdentifier identifier: String) throws {
+        guard let person = try person(for: identifier) else { return }
+        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        person.note = trimmed.isEmpty ? nil : trimmed
+        try ctx.save()
+    }
+
     private func generateTodayPicks(
         from pool: [Person],
         settings: AppSettings
