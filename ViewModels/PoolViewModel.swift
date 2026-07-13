@@ -1,8 +1,11 @@
 import CoreData
 import Foundation
+import os
 
 @MainActor
 final class PoolViewModel: ObservableObject {
+
+    private static let logger = Logger(subsystem: "com.anujpatel.StayConnected", category: "Pool")
 
     // MARK: - Published
     @Published var people: [Person] = []
@@ -30,7 +33,7 @@ final class PoolViewModel: ObservableObject {
             people = try ctx.fetch(req)
         } catch {
             people = []
-            print("Pool fetch failed:", error)
+            Self.logger.error("Pool fetch failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 

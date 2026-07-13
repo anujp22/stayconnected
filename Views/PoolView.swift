@@ -1,10 +1,13 @@
 import Contacts
 import ContactsUI
 import CoreData
+import os
 import SwiftUI
 import UIKit
 
 struct PoolView: View {
+    private static let logger = Logger(subsystem: "com.anujpatel.StayConnected", category: "Pool")
+
     // MARK: - Environment
 
     @Environment(\.managedObjectContext) private var ctx
@@ -324,7 +327,7 @@ struct PoolView: View {
 
             successHaptic()
         } catch {
-            print("❌ addContactsToPool failed: \(error)")
+            Self.logger.error("addContactsToPool failed: \(error.localizedDescription, privacy: .public)")
             addContactErrorMessage = error.localizedDescription
 
             if ctx.hasChanges {

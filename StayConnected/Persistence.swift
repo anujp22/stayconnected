@@ -41,6 +41,17 @@ struct PersistenceController {
         if inMemory {
             container.persistentStoreDescriptions.first!.url = URL(fileURLWithPath: "/dev/null")
         }
+
+        // Enable staged lightweight migration explicitly. The store shipped with
+        // a single model version; V2 renames DailyPick.contactIdentifiers
+        // (Transformable) to contactIdentifiersRaw (String) and relaxes several
+        // Person attributes to optional. Lightweight migration handles the
+        // optionality and add/remove-attribute changes; the daily picks are
+        // regenerated each day, so the dropped Transformable value is harmless.
+        if let description = container.persistentStoreDescriptions.first {
+            description.shouldMigrateStoreAutomatically = true
+            description.shouldInferMappingModelAutomatically = true
+        }
         container.loadPersistentStores(completionHandler: { (storeDescription, error) in
             if let error = error as NSError? {
                 // Replace this implementation with code to handle the error appropriately.

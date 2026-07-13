@@ -63,7 +63,7 @@ final class SettingsViewModel: ObservableObject {
 
     // MARK: - Derived Values
 
-    // 👇 This is the math users will see
+    /// The pool size we recommend so the min-gap rule can always be satisfied.
     var recommendedPoolSize: Int {
         picksPerDay * minGapDays
     }

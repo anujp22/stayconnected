@@ -438,6 +438,85 @@ struct StayConnectedTests {
     }
 
     @MainActor
+    @Test func dailyPickListIsEmptyWhenRawIsNil() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+
+        let pick = DailyPick(context: context)
+        pick.id = UUID()
+        pick.date = Date().startOfDay
+        pick.contactIdentifiersRaw = nil
+
+        // A store migrated from the old Transformable attribute lands here with a
+        // nil raw value; it must degrade to an empty list, never crash.
+        #expect(pick.contactIdentifierList == [])
+    }
+
+    @MainActor
+    @Test func snoozeIsANoOpWhenPersonIsNotACurrentPick() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let viewModel = TodayViewModel(context: context)
+
+        let settings = try AppSettings.fetchOrCreate(in: context)
+        settings.picksPerDay = 2
+        settings.minGapDays = 7
+
+        for index in 0..<3 {
+            let person = Person(context: context)
+            person.id = UUID()
+            person.displayName = "Person \(index)"
+            person.contactIdentifier = "person-\(index)"
+            person.isInPool = true
+        }
+        try context.save()
+
+        let generated = try viewModel.generateTodayPicks()
+        #expect(generated.count == 2)
+
+        // Snooze someone who isn't in today's picks: the picks must be unchanged
+        // and no genuine pick may be dropped.
+        let notPicked = try #require(
+            try context.fetch(Person.fetchRequest() as NSFetchRequest<Person>)
+                .first { person in !generated.contains { $0.objectID == person.objectID } }
+        )
+
+        let until = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+        let result = try viewModel.snoozePick(notPicked, until: until)
+
+        #expect(result.count == 2)
+        #expect(Set(result.map(\.objectID)) == Set(generated.map(\.objectID)))
+        #expect(!notPicked.isSnoozed(asOf: Date()))
+    }
+
+    @MainActor
+    @Test func poolWarningBoundaryIsInclusiveOfRecommendedSize() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let viewModel = TodayViewModel(context: context)
+
+        let settings = try AppSettings.fetchOrCreate(in: context)
+        settings.picksPerDay = 2
+        settings.minGapDays = 5 // recommended pool size = 10
+
+        // Exactly at the recommended size: no warning.
+        for index in 0..<10 {
+            let person = Person(context: context)
+            person.id = UUID()
+            person.displayName = "Person \(index)"
+            person.contactIdentifier = "person-\(index)"
+            person.isInPool = true
+        }
+        try context.save()
+        #expect(try viewModel.poolWarning() == nil)
+
+        // One below the recommended size: warn.
+        let extra = try #require(
+            try context.fetch(Person.fetchRequest() as NSFetchRequest<Person>).first
+        )
+        extra.isInPool = false
+        try context.save()
+        #expect(try viewModel.poolWarning() != nil)
+    }
+
+    @MainActor
     @Test func reminderPreviewAcknowledgesCompletedConnectionToday() throws {
         let context = PersistenceController(inMemory: true).container.viewContext
         let person = Person(context: context)

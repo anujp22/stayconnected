@@ -1,7 +1,5 @@
-import Contacts
 import CoreData
 import Foundation
-import UIKit
 
 @MainActor
 final class TodayViewModel: ObservableObject {
@@ -133,11 +131,11 @@ final class TodayViewModel: ObservableObject {
     /// Returns a soft warning when the pool is too small to reliably enforce
     /// the configured gap, or `nil` when the pool is empty or large enough.
     func poolWarning() throws -> String? {
-        let settings = try AppSettings.fetchOrCreate(in: ctx)
+        let settings = try AppSettings.effective(in: ctx)
         let count = try poolCount()
 
         guard count > 0,
-              count < Int(settings.minGapDays) * Int(settings.picksPerDay) else {
+              count < max(settings.minGapDays, 1) * max(settings.picksPerDay, 1) else {
             return nil
         }
 
@@ -166,13 +164,23 @@ final class TodayViewModel: ObservableObject {
     /// replacement (if the pool has one) so the day still feels complete.
     @discardableResult
     func snoozePick(_ person: Person, until: Date) throws -> [Person] {
-        person.snoozedUntil = until
+        // Source today's picks from the persisted DailyPick so we never rebuild
+        // the list from an empty/absent record and silently drop a genuine pick.
+        let currentPicks = try loadTodayPicks()
 
-        var picks = try loadTodayPicks().filter { $0.objectID != person.objectID }
+        // Only snooze someone who is actually a current pick; otherwise this
+        // could persist a DailyPick that omits an unrelated person.
+        guard currentPicks.contains(where: { $0.objectID == person.objectID }) else {
+            todayPicks = currentPicks
+            return currentPicks
+        }
+
+        person.snoozedUntil = until
+        var picks = currentPicks.filter { $0.objectID != person.objectID }
 
         // Find one replacement from the pool, excluding people already picked
         // today and (via SelectionService) anyone currently snoozed.
-        let settings = try AppSettings.fetchOrCreate(in: ctx)
+        let minGapDays = try AppSettings.effective(in: ctx).minGapDays
         let req: NSFetchRequest<Person> = Person.fetchRequest()
         req.predicate = NSPredicate(format: "isInPool == YES")
         let pool = try ctx.fetch(req)
@@ -183,7 +191,7 @@ final class TodayViewModel: ObservableObject {
         if let replacement = selector.pickToday(
             from: candidates,
             picksPerDay: 1,
-            minGapDays: Int(settings.minGapDays),
+            minGapDays: minGapDays,
             today: Date()
         ).first {
             replacement.lastPickedAt = Date()
@@ -200,30 +208,6 @@ final class TodayViewModel: ObservableObject {
         }
 
         return picks
-    }
-
-    func call(_ person: Person) {
-        guard let identifier = person.contactIdentifier else { return }
-
-        let store = CNContactStore()
-        let keys: [CNKeyDescriptor] = [
-            CNContactPhoneNumbersKey as CNKeyDescriptor
-        ]
-
-        let predicate = CNContact.predicateForContacts(withIdentifiers: [identifier])
-
-        guard
-            let contact = try? store
-                .unifiedContacts(matching: predicate, keysToFetch: keys)
-                .first,
-            let number = contact.phoneNumbers.first?.value.stringValue
-        else {
-            return
-        }
-
-        if let url = PhoneLink.url(.tel, number: number) {
-            UIApplication.shared.open(url)
-        }
     }
 
     // MARK: - Private Helpers

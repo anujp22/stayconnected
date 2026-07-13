@@ -46,7 +46,6 @@ struct AppShellView: View {
                 }
                 .tag(AppTab.settings)
         }
-        .tint(Color("BrandPrimary"))
         .fullScreenCover(isPresented: onboardingBinding) {
             OnboardingView(
                 onStartSetup: {
