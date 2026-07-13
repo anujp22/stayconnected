@@ -183,12 +183,12 @@ struct PoolView: View {
             if let phone = resolvedPhone, !phone.isEmpty {
                 Button("Call") {
                     successHaptic()
-                    connectVia(.tel, value: phone)
+                    connectAndLog(.tel, value: phone)
                 }
 
                 Button("Message") {
                     successHaptic()
-                    connectVia(.sms, value: phone)
+                    connectAndLog(.sms, value: phone)
                 }
             } else {
                 Button("No number available", role: .destructive) { }
@@ -347,14 +347,25 @@ struct PoolView: View {
         }
     }
 
-    private func connectVia(_ scheme: PhoneLink.Scheme, value: String) {
+    /// Opens the link and, on success, logs the check-in for the selected
+    /// person so reaching out from the pool also counts automatically.
+    /// (markCalled dedups to one connection per contact per day.)
+    private func connectAndLog(_ scheme: PhoneLink.Scheme, value: String) {
+        guard connectVia(scheme, value: value) else { return }
+        guard let person = selectedPerson else { return }
+        try? TodayViewModel(context: ctx).markCalled(person)
+    }
+
+    @discardableResult
+    private func connectVia(_ scheme: PhoneLink.Scheme, value: String) -> Bool {
         guard let url = PhoneLink.url(scheme, number: value) else {
             connectErrorMessage = "Invalid phone number."
             showConnectError = true
-            return
+            return false
         }
 
         openURL(url)
+        return true
     }
 
     private func successHaptic() {
