@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		6A5AD67C2F24D89E00E2F348 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5AD6772F24D89E00E2F348 /* ContentView.swift */; };
 		6A5AD6862F24EC6D00E2F348 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5AD6852F24EC6D00E2F348 /* SettingsViewModel.swift */; };
 		6A5AD6872F24EDEF00E2F348 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AD1D97E2E60108500960473 /* SettingsView.swift */; };
 		6A5AD6892F26819B00E2F348 /* NotificationsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5AD6882F26819B00E2F348 /* NotificationsService.swift */; };
@@ -52,7 +51,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		6A5AD6772F24D89E00E2F348 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		6A5AD6852F24EC6D00E2F348 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		6A5AD6882F26819B00E2F348 /* NotificationsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsService.swift; sourceTree = "<group>"; };
 		6A5AD68A2F26859400E2F348 /* ContactAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactAvatarView.swift; sourceTree = "<group>"; };
@@ -227,7 +225,6 @@
 				6AD1D97D2E60107600960473 /* PoolView.swift */,
 				6AD1D97C2E60104F00960473 /* TodayView.swift */,
 				6A5AD68A2F26859400E2F348 /* ContactAvatarView.swift */,
-				6A5AD6772F24D89E00E2F348 /* ContentView.swift */,
 				6A5AD68E2F28EB7800E2F348 /* HomeView.swift */,
 				6A5AD6AC2F2CD67900E2F348 /* AppShellView.swift */,
 				6AC020202F5C99BA00A2D6D3 /* SummaryView.swift */,
@@ -399,7 +396,6 @@
 				6A5AD6952F28ED9600E2F348 /* TodayPick.swift in Sources */,
 				6A5AD6972F28F34E00E2F348 /* PressableCardStyle.swift in Sources */,
 				6AA9DADF2E8A2D8E0016CA81 /* TodayView.swift in Sources */,
-				6A5AD67C2F24D89E00E2F348 /* ContentView.swift in Sources */,
 				6AE250F82E8A399D00D36CA5 /* Date+StartOfDay.swift in Sources */,
 				6A5AD6912F28EB8B00E2F348 /* TodayCardView.swift in Sources */,
 				6AD1D9812E60A81800960473 /* PoolView.swift in Sources */,
