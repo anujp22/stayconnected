@@ -347,13 +347,26 @@ struct HomeView: View {
                     )
                     .shadow(color: .black.opacity(0.04), radius: 12, x: 0, y: 6)
                 } else {
-                    TodayCardView(
-                        pick: TodayPick(
-                            displayName: "No pick for today",
-                            phoneNumber: nil,
-                            lastConnectedText: "Generate a pick or add more people to your pool"
-                        )
-                    ) { }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("No pick for today")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundStyle(Color("TextPrimary"))
+                        Text("Generate a pick or add more people to your pool.")
+                            .font(.footnote)
+                            .foregroundStyle(Color("TextSecondary"))
+                    }
+                    .padding(.vertical, 14)
+                    .padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(Color("Card"))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(Color("Divider").opacity(0.85), lineWidth: 1)
+                    )
                 }
 
                 // Quick navigation
