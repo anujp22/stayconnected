@@ -11,6 +11,7 @@ private struct HomePick: Equatable {
     let phoneNumber: String?
     let lastConnectedText: String
     let hasConnectedBefore: Bool
+    let note: String?
 }
 
 // MARK: - Contact Avatar Inline View
@@ -106,6 +107,7 @@ struct HomeView: View {
     @State private var monthlyTargetCount = 0
     @State private var showSnoozeOptions = false
     @State private var snoozeTarget: HomePick?
+    @State private var noteDraft = ""
     @State private var poolWarningText: String?
 
     // Remembers the day we last auto-generated (or the user reset) so opening
@@ -155,7 +157,7 @@ struct HomeView: View {
                         }
                 }
                 .sheet(isPresented: $showingPickDetails) {
-                    VStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 16) {
                         Text((selectedPick ?? todayPicks.first)?.displayName ?? "No pick")
                             .font(.title2)
                             .fontWeight(.bold)
@@ -168,10 +170,34 @@ struct HomeView: View {
                         Text((selectedPick ?? todayPicks.first)?.lastConnectedText ?? "Generate a pick or add more people to your pool")
                             .foregroundStyle(Color("TextSecondary"))
 
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Note")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color("TextPrimary"))
+
+                            TextField("e.g. ask about her new job", text: $noteDraft, axis: .vertical)
+                                .lineLimit(1...3)
+                                .textFieldStyle(.roundedBorder)
+
+                            Text("A quick memory jog for next time you reach out.")
+                                .font(.caption)
+                                .foregroundStyle(Color("TextSecondary"))
+                        }
+
+                        Button("Save Note") {
+                            if let pick = (selectedPick ?? todayPicks.first) {
+                                saveNote(for: pick)
+                            }
+                        }
+                        .buttonStyle(PrimaryPillButtonStyle())
+
                         Spacer()
                     }
                     .padding()
                     .presentationDetents([.medium])
+                    .onAppear {
+                        noteDraft = (selectedPick ?? todayPicks.first)?.note ?? ""
+                    }
                 }
 
                 if let warning = poolWarningText {
@@ -273,6 +299,14 @@ struct HomeView: View {
                                                 .foregroundStyle(Color("TextSecondary"))
                                                 .multilineTextAlignment(.leading)
                                                 .lineLimit(2)
+
+                                            if let note = pick.note, !note.isEmpty {
+                                                Label(note, systemImage: "quote.opening")
+                                                    .font(.caption)
+                                                    .italic()
+                                                    .foregroundStyle(Color("BrandPrimary"))
+                                                    .lineLimit(1)
+                                            }
                                         }
 
                                         Spacer(minLength: 8)
@@ -578,7 +612,8 @@ struct HomeView: View {
                 displayName: person.displayName ?? "Unknown",
                 phoneNumber: nil,
                 lastConnectedText: lastConnectedText(for: person),
-                hasConnectedBefore: person.lastCalledAt != nil
+                hasConnectedBefore: person.lastCalledAt != nil,
+                note: person.note
             )
         }
 
@@ -602,7 +637,8 @@ struct HomeView: View {
                 displayName: pick.displayName,
                 phoneNumber: number,
                 lastConnectedText: pick.lastConnectedText,
-                hasConnectedBefore: pick.hasConnectedBefore
+                hasConnectedBefore: pick.hasConnectedBefore,
+                note: pick.note
             )
         }
 
@@ -654,6 +690,18 @@ struct HomeView: View {
             refreshMonthlyProgress()
         } catch {
             connectErrorMessage = "Couldn’t mark this contact as called."
+            showConnectError = true
+        }
+    }
+
+    private func saveNote(for pick: HomePick) {
+        do {
+            let viewModel = TodayViewModel(context: context)
+            try viewModel.setNote(noteDraft, forContactIdentifier: pick.identifier)
+            refreshTodayPicks()
+            showingPickDetails = false
+        } catch {
+            connectErrorMessage = "Couldn’t save this note."
             showConnectError = true
         }
     }

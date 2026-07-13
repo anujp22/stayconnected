@@ -63,6 +63,25 @@ struct StayConnectedTests {
     }
 
     @MainActor
+    @Test func setNoteStoresTrimmedTextAndClearsWhenEmpty() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let viewModel = TodayViewModel(context: context)
+
+        let person = Person(context: context)
+        person.id = UUID()
+        person.displayName = "Noted"
+        person.contactIdentifier = "noted"
+        person.isInPool = true
+        try context.save()
+
+        try viewModel.setNote("  ask about her new job  ", forContactIdentifier: "noted")
+        #expect(person.note == "ask about her new job")
+
+        try viewModel.setNote("   ", forContactIdentifier: "noted")
+        #expect(person.note == nil)
+    }
+
+    @MainActor
     @Test func selectionServiceRanksByOverdueRelativeToCadence() throws {
         let context = PersistenceController(inMemory: true).container.viewContext
         let calendar = Calendar.current
