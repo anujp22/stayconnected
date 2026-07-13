@@ -153,6 +153,47 @@ final class TodayViewModel: ObservableObject {
         }
     }
 
+    /// Gently defers a single pick: marks the person snoozed until `until`,
+    /// removes them from today's list, and swaps in the best available
+    /// replacement (if the pool has one) so the day still feels complete.
+    @discardableResult
+    func snoozePick(_ person: Person, until: Date) throws -> [Person] {
+        person.snoozedUntil = until
+
+        var picks = try loadTodayPicks().filter { $0.objectID != person.objectID }
+
+        // Find one replacement from the pool, excluding people already picked
+        // today and (via SelectionService) anyone currently snoozed.
+        let settings = try AppSettings.fetchOrCreate(in: ctx)
+        let req: NSFetchRequest<Person> = Person.fetchRequest()
+        req.predicate = NSPredicate(format: "isInPool == YES")
+        let pool = try ctx.fetch(req)
+
+        let alreadyPicked = Set(picks.map { $0.objectID } + [person.objectID])
+        let candidates = pool.filter { !alreadyPicked.contains($0.objectID) }
+
+        if let replacement = selector.pickToday(
+            from: candidates,
+            picksPerDay: 1,
+            minGapDays: Int(settings.minGapDays),
+            today: Date()
+        ).first {
+            replacement.lastPickedAt = Date()
+            picks.append(replacement)
+        }
+
+        let ids = picks.compactMap { $0.contactIdentifier }
+        _ = try DailyPick.upsertForToday(with: ids, in: ctx)
+        try ctx.save()
+
+        todayPicks = picks
+        Task {
+            try? await NotificationsService.syncReminderIfNeeded(in: ctx)
+        }
+
+        return picks
+    }
+
     func call(_ person: Person) {
         guard let identifier = person.contactIdentifier else { return }
 

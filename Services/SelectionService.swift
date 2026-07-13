@@ -41,7 +41,7 @@ final class SelectionService {
         today: Date = Date()
     ) -> [Person] {
         let candidates: [Candidate] = people
-            .filter { $0.isInPool }
+            .filter { $0.isInPool && !$0.isSnoozed(asOf: today) }
             .map { person in
                 Candidate(
                     person: person,
