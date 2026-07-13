@@ -183,12 +183,12 @@ struct PoolView: View {
             if let phone = resolvedPhone, !phone.isEmpty {
                 Button("Call") {
                     successHaptic()
-                    connectVia("tel", value: phone)
+                    connectVia(.tel, value: phone)
                 }
 
                 Button("Message") {
                     successHaptic()
-                    connectVia("sms", value: phone)
+                    connectVia(.sms, value: phone)
                 }
             } else {
                 Button("No number available", role: .destructive) { }
@@ -347,9 +347,8 @@ struct PoolView: View {
         }
     }
 
-    private func connectVia(_ scheme: String, value: String) {
-        let cleaned = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleaned.isEmpty, let url = URL(string: "\(scheme)://\(cleaned)") else {
+    private func connectVia(_ scheme: PhoneLink.Scheme, value: String) {
+        guard let url = PhoneLink.url(scheme, number: value) else {
             connectErrorMessage = "Invalid phone number."
             showConnectError = true
             return

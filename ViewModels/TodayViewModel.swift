@@ -172,11 +172,7 @@ final class TodayViewModel: ObservableObject {
             return
         }
 
-        let cleaned = number
-            .components(separatedBy: CharacterSet.decimalDigits.inverted)
-            .joined()
-
-        if let url = URL(string: "tel://\(cleaned)") {
+        if let url = PhoneLink.url(.tel, number: number) {
             UIApplication.shared.open(url)
         }
     }

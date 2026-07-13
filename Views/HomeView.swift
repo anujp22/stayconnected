@@ -127,10 +127,10 @@ struct HomeView: View {
                         ) {
                             if let phone = (selectedPick ?? todayPicks.first)?.phoneNumber, !phone.isEmpty {
                                 Button("Call") {
-                                    connectVia("tel", value: phone)
+                                    connectVia(.tel, value: phone)
                                 }
                                 Button("Message") {
-                                    connectVia("sms", value: phone)
+                                    connectVia(.sms, value: phone)
                                 }
                             } else {
                                 Button("No number available", role: .destructive) { }
@@ -647,19 +647,9 @@ struct HomeView: View {
         return "Not connected yet"
     }
 
-    private func connectVia(_ scheme: String, value: String) {
-        let cleaned = value
-            .components(separatedBy: CharacterSet.decimalDigits.inverted)
-            .joined()
-
-        guard !cleaned.isEmpty else {
-            connectErrorMessage = "No phone number found for this contact."
-            showConnectError = true
-            return
-        }
-
-        guard let url = URL(string: "\(scheme)://\(cleaned)") else {
-            connectErrorMessage = "Couldn’t create a valid link."
+    private func connectVia(_ scheme: PhoneLink.Scheme, value: String) {
+        guard let url = PhoneLink.url(scheme, number: value) else {
+            connectErrorMessage = "No valid phone number for this contact."
             showConnectError = true
             return
         }
