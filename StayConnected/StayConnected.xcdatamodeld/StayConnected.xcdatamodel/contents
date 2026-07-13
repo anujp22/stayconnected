@@ -7,7 +7,7 @@
         <attribute name="remindersEnabled" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="reminderTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
     </entity>
-    <entity name="ConnectionEvent" representedClassName=".ConnectionEvent" syncable="YES" codeGenerationType="class">
+    <entity name="ConnectionEvent" representedClassName="ConnectionEvent" syncable="YES" codeGenerationType="class">
         <attribute name="contactIdentifier" optional="YES" attributeType="String"/>
         <attribute name="contactNameSnapshot" optional="YES" attributeType="String"/>
         <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
