@@ -104,7 +104,6 @@ struct HomeView: View {
     @State private var showingPickDetails = false
     @State private var monthlyConnectedCount = 0
     @State private var monthlyTargetCount = 0
-    @State private var monthlyExpectedByToday = 0
     @State private var poolWarningText: String?
 
     // Remembers the day we last auto-generated (or the user reset) so opening
@@ -210,7 +209,7 @@ struct HomeView: View {
 
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(alignment: .firstTextBaseline) {
-                                    Text("\(monthlyConnectedCount) / \(monthlyTargetCount) connections this month")
+                                    Text(monthlyReachedLabel)
                                         .font(.subheadline)
                                         .fontWeight(.medium)
                                         .foregroundStyle(Color("TextPrimary"))
@@ -222,10 +221,6 @@ struct HomeView: View {
 
                                 ProgressView(value: monthlyProgress)
                                     .tint(progressTintColor)
-
-                                Text("Expected by today: \(monthlyExpectedByToday) picks")
-                                    .font(.caption)
-                                    .foregroundStyle(Color("TextSecondary"))
                             }
                         }
 
@@ -476,31 +471,34 @@ struct HomeView: View {
         return min(Double(monthlyConnectedCount) / Double(monthlyTargetCount), 1.0)
     }
 
-    private var progressMessage: String {
-        guard monthlyTargetCount > 0 else { return "No target yet" }
-
-        if monthlyConnectedCount >= monthlyTargetCount {
-            return "Target reached"
-        }
-
-        if monthlyConnectedCount > monthlyExpectedByToday {
-            return "Ahead of pace"
-        } else if monthlyConnectedCount == monthlyExpectedByToday {
-            return "On pace"
-        } else {
-            return "Behind pace"
+    // Warm, forward-looking copy. We deliberately avoid pace/behind framing —
+    // the goal is a gentle nudge, never guilt about a number you "should" hit.
+    private var monthlyReachedLabel: String {
+        switch monthlyConnectedCount {
+        case 0:
+            return "Reach out to someone today"
+        case 1:
+            return "1 person reached this month"
+        default:
+            return "\(monthlyConnectedCount) reached this month"
         }
     }
 
-    private var progressTintColor: Color {
-        switch progressMessage {
-        case "Target reached":
-            return Color("Success")
-        case "Ahead of pace", "On pace":
-            return Color("BrandPrimary")
-        default:
-            return Color("Warning")
+    private var progressMessage: String {
+        if monthlyConnectedCount == 0 {
+            return "A fresh start"
         }
+        if monthlyTargetCount > 0, monthlyConnectedCount >= monthlyTargetCount {
+            return "You’re on a roll"
+        }
+        return "Keep it going"
+    }
+
+    private var progressTintColor: Color {
+        if monthlyTargetCount > 0, monthlyConnectedCount >= monthlyTargetCount {
+            return Color("Success")
+        }
+        return Color("BrandPrimary")
     }
 
     // MARK: - Private Helpers
@@ -636,7 +634,6 @@ struct HomeView: View {
         let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? now
         let range = calendar.range(of: .day, in: .month, for: now)
         let daysInMonth = range?.count ?? 30
-        let dayOfMonth = calendar.component(.day, from: now)
 
         let settings: AppSettings?
         do {
@@ -644,13 +641,11 @@ struct HomeView: View {
         } catch {
             monthlyConnectedCount = 0
             monthlyTargetCount = 0
-            monthlyExpectedByToday = 0
             return
         }
 
         let picksPerDay = max(Int(settings?.picksPerDay ?? 0), 0)
         monthlyTargetCount = picksPerDay * daysInMonth
-        monthlyExpectedByToday = min(picksPerDay * dayOfMonth, monthlyTargetCount)
 
         // Progress denominator: picksPerDay * daysInMonth. The numerator counts
         // ConnectionEvents this month, which markCalled already dedups to at most
