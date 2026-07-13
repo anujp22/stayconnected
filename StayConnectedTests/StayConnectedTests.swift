@@ -63,6 +63,45 @@ struct StayConnectedTests {
     }
 
     @MainActor
+    @Test func selectionServiceRanksByOverdueRelativeToCadence() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 3, day: 14, hour: 9))!
+        let service = SelectionService()
+
+        // Close friend called 20 days ago: overdue (cadence 14).
+        let close = Person(context: context)
+        close.id = UUID()
+        close.displayName = "Close"
+        close.contactIdentifier = "close"
+        close.isInPool = true
+        close.contactCadence = .close
+        close.lastCalledAt = calendar.date(byAdding: .day, value: -20, to: now)
+        close.lastPickedAt = calendar.date(byAdding: .day, value: -20, to: now)
+
+        // Occasional contact called 40 days ago: still on schedule (cadence 90).
+        let occasional = Person(context: context)
+        occasional.id = UUID()
+        occasional.displayName = "Occasional"
+        occasional.contactIdentifier = "occasional"
+        occasional.isInPool = true
+        occasional.contactCadence = .occasional
+        occasional.lastCalledAt = calendar.date(byAdding: .day, value: -40, to: now)
+        occasional.lastPickedAt = calendar.date(byAdding: .day, value: -40, to: now)
+
+        let picks = service.pickToday(
+            from: [occasional, close],
+            picksPerDay: 1,
+            minGapDays: 7,
+            today: now
+        )
+
+        // Despite being called more recently in absolute terms, the close friend
+        // is more overdue for *their* cadence and should be surfaced first.
+        #expect(picks.map(\.contactIdentifier) == ["close"])
+    }
+
+    @MainActor
     @Test func selectionServiceSkipsSnoozedContacts() throws {
         let context = PersistenceController(inMemory: true).container.viewContext
         let calendar = Calendar.current
