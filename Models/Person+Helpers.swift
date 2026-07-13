@@ -10,26 +10,4 @@ extension Person {
 
         return try ctx.fetch(req).first
     }
-
-    /// Upsert (find or create) a Person for this contact.
-    static func findOrCreate(
-        id contactIdentifier: String,
-        name displayName: String,
-        in ctx: NSManagedObjectContext
-    ) throws -> Person {
-        if let existing = try fetchByContactIdentifier(contactIdentifier, in: ctx) {
-            // keep existing name if you like; here we refresh from Contacts
-            existing.displayName = displayName
-
-            return existing
-        }
-
-        let p = Person(context: ctx)
-
-        p.id = UUID()
-        p.contactIdentifier = contactIdentifier
-        p.displayName = displayName
-        p.isInPool = false
-        return p
-    }
 }
