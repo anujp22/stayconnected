@@ -733,16 +733,15 @@ struct HomeView: View {
         let range = calendar.range(of: .day, in: .month, for: now)
         let daysInMonth = range?.count ?? 30
 
-        let settings: AppSettings?
+        let picksPerDay: Int
         do {
-            settings = try AppSettings.fetchOrCreate(in: context)
+            picksPerDay = max(try AppSettings.effective(in: context).picksPerDay, 0)
         } catch {
             monthlyConnectedCount = 0
             monthlyTargetCount = 0
             return
         }
 
-        let picksPerDay = max(Int(settings?.picksPerDay ?? 0), 0)
         monthlyTargetCount = picksPerDay * daysInMonth
 
         // Progress denominator: picksPerDay * daysInMonth. The numerator counts
@@ -780,11 +779,15 @@ struct HomeView: View {
         }.value
     }
 
+    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter
+    }()
+
     private func lastConnectedText(for person: Person) -> String {
         if let lastCalledAt = person.lastCalledAt {
-            let formatter = RelativeDateTimeFormatter()
-            formatter.unitsStyle = .full
-            return "Last connected: " + formatter.localizedString(for: lastCalledAt, relativeTo: Date())
+            return "Last connected: " + Self.relativeDateFormatter.localizedString(for: lastCalledAt, relativeTo: Date())
         }
         return "Not connected yet"
     }

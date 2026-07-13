@@ -17,7 +17,6 @@
 		6A5AD6AD2F2CD67900E2F348 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5AD6AC2F2CD67900E2F348 /* AppShellView.swift */; };
 		6AA9DADA2E8A2C640016CA81 /* AppSettings+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AA9DAD92E8A2C5A0016CA81 /* AppSettings+Helpers.swift */; };
 		6AA9DADC2E8A2C9A0016CA81 /* SelectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AA9DADB2E8A2C8E0016CA81 /* SelectionService.swift */; };
-		6AF17A0100000000000000A2 /* PhoneLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF17A0100000000000000A1 /* PhoneLink.swift */; };
 		6AA9DADE2E8A2CE50016CA81 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AA9DADD2E8A2CD80016CA81 /* TodayViewModel.swift */; };
 		6AC020212F5C99BA00A2D6D3 /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AC020202F5C99BA00A2D6D3 /* SummaryView.swift */; };
 		6AC0F19B2F5D246C00D107F1 /* ContactHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AC0F19A2F5D246C00D107F1 /* ContactHistoryView.swift */; };
@@ -27,6 +26,7 @@
 		6AD1D9852E60AF4B00960473 /* Person+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AD1D9822E60A97800960473 /* Person+Helpers.swift */; };
 		6AE250F82E8A399D00D36CA5 /* Date+StartOfDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AE250F72E8A399300D36CA5 /* Date+StartOfDay.swift */; };
 		6AE250FA2E8A39E300D36CA5 /* DailyPick+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AE250F92E8A39D800D36CA5 /* DailyPick+Helpers.swift */; };
+		6AF17A0100000000000000A2 /* PhoneLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF17A0100000000000000A1 /* PhoneLink.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,7 +56,6 @@
 		6A5AD6AC2F2CD67900E2F348 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
 		6AA9DAD92E8A2C5A0016CA81 /* AppSettings+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppSettings+Helpers.swift"; sourceTree = "<group>"; };
 		6AA9DADB2E8A2C8E0016CA81 /* SelectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionService.swift; sourceTree = "<group>"; };
-		6AF17A0100000000000000A1 /* PhoneLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneLink.swift; sourceTree = "<group>"; };
 		6AA9DADD2E8A2CD80016CA81 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
 		6AC020202F5C99BA00A2D6D3 /* SummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryView.swift; sourceTree = "<group>"; };
 		6AC0F19A2F5D246C00D107F1 /* ContactHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactHistoryView.swift; sourceTree = "<group>"; };
@@ -75,6 +74,7 @@
 		6AD1D9822E60A97800960473 /* Person+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Person+Helpers.swift"; sourceTree = "<group>"; };
 		6AE250F72E8A399300D36CA5 /* Date+StartOfDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+StartOfDay.swift"; sourceTree = "<group>"; };
 		6AE250F92E8A39D800D36CA5 /* DailyPick+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DailyPick+Helpers.swift"; sourceTree = "<group>"; };
+		6AF17A0100000000000000A1 /* PhoneLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneLink.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */

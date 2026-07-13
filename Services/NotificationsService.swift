@@ -187,7 +187,7 @@ enum NotificationsService {
         in ctx: NSManagedObjectContext,
         now: Date = Date()
     ) async throws {
-        let settings = try AppSettings.fetchOrCreate(in: ctx)
+        let settings = try AppSettings.effective(in: ctx)
 
         guard settings.remindersEnabled else {
             await cancelDailyReminder()
