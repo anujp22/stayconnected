@@ -343,8 +343,7 @@ enum NotificationsService {
 
         let picksCount: Int
         if let dailyPick = try DailyPick.fetchFor(date: now, in: ctx) {
-            let identifiers = dailyPick.contactIdentifiers as? [String]
-            picksCount = identifiers?.count ?? 0
+            picksCount = dailyPick.contactIdentifierList.count
         } else {
             picksCount = 0
         }
