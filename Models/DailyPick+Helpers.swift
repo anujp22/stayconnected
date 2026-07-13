@@ -9,7 +9,7 @@ extension DailyPick {
     ) throws -> DailyPick? {
         let req: NSFetchRequest<DailyPick> = DailyPick.fetchRequest()
         // we save normalized start-of-day; match exactly
-        let day = date.startOfDayUTC as NSDate
+        let day = date.startOfDay as NSDate
         req.predicate = NSPredicate(format: "date == %@", day)
         req.fetchLimit = 1
 
@@ -28,7 +28,7 @@ extension DailyPick {
         let d = DailyPick(context: ctx)
 
         d.id = UUID()
-        d.date = Date().startOfDayUTC
+        d.date = Date().startOfDay
         d.contactIdentifiers = contactIdentifiers as NSArray
         return d
     }
