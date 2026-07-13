@@ -7,6 +7,7 @@ struct ContactRowCard: View {
     let subtitle: String
     let phone: String?
     let isPinned: Bool
+    var cadenceLabel: String? = nil
 
     var onTap: () -> Void = {}
 
@@ -33,6 +34,17 @@ struct ContactRowCard: View {
                             Image(systemName: "star.fill")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(Color("AccentSand").opacity(0.9))
+                        }
+
+                        if let cadenceLabel {
+                            Text(cadenceLabel)
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(
+                                    Capsule().fill(Color("BrandPrimary").opacity(0.12))
+                                )
+                                .foregroundStyle(Color("BrandPrimary"))
                         }
                     }
 

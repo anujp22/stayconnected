@@ -101,7 +101,8 @@ struct PoolView: View {
                             name: person.displayName ?? "Unknown",
                             subtitle: "Tap to connect",
                             phone: (nil as String?),
-                            isPinned: person.isPinned
+                            isPinned: person.isPinned,
+                            cadenceLabel: person.contactCadence.label
                         ) {
                             selectedPerson = person
                             resolvePhoneAndPresent(for: person)
@@ -136,6 +137,22 @@ struct PoolView: View {
                                     person.isPinned ? "Unpin" : "Pin",
                                     systemImage: person.isPinned ? "pin.slash" : "pin"
                                 )
+                            }
+
+                            Menu {
+                                ForEach(ContactCadence.allCases) { cadence in
+                                    Button {
+                                        setCadence(cadence, for: person)
+                                    } label: {
+                                        if person.contactCadence == cadence {
+                                            Label("\(cadence.label) — \(cadence.subtitle)", systemImage: "checkmark")
+                                        } else {
+                                            Text("\(cadence.label) — \(cadence.subtitle)")
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Label("How often: \(person.contactCadence.label)", systemImage: "calendar")
                             }
 
                             Button(role: .destructive) {
@@ -374,6 +391,18 @@ struct PoolView: View {
     }
 
     // MARK: - Actions
+
+    private func setCadence(_ cadence: ContactCadence, for person: Person) {
+        person.contactCadence = cadence
+        do {
+            try ctx.save()
+            viewModel.load()
+            successHaptic()
+        } catch {
+            connectErrorMessage = "Couldn’t update how often to connect."
+            showConnectError = true
+        }
+    }
 
     private func togglePinned(_ person: Person) {
         person.isPinned.toggle()
