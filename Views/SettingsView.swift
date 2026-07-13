@@ -9,6 +9,8 @@ struct SettingsView: View {
 
     @State private var showSavedToast = false
     @State private var showNotificationPermissionAlert = false
+    @State private var errorMessage: String?
+    @State private var showError = false
     @State private var initialPicksPerDay: Int = 1
     @State private var initialMinGapDays: Int = 7
     @State private var initialRemindersEnabled: Bool = false
@@ -160,7 +162,8 @@ struct SettingsView: View {
                     initialRemindersEnabled = viewModel.remindersEnabled
                     initialReminderTime = viewModel.reminderTime
                 } catch {
-                    // Intentionally left blank.
+                    errorMessage = "Couldn’t load your settings. Default values are shown."
+                    showError = true
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -207,7 +210,8 @@ struct SettingsView: View {
                                     initialReminderTime = viewModel.reminderTime
                                 }
                             } catch {
-                                // Optional: surface error later
+                                errorMessage = "Couldn’t save your settings. Please try again."
+                                showError = true
                             }
                         }
                     } label: {
@@ -230,6 +234,11 @@ struct SettingsView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text("Your settings have been saved.")
+            }
+            .alert("Something Went Wrong", isPresented: $showError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(errorMessage ?? "Please try again.")
             }
             .alert("Notifications Disabled", isPresented: $showNotificationPermissionAlert) {
                 Button("Open Settings") {

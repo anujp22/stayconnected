@@ -652,6 +652,10 @@ struct HomeView: View {
         monthlyTargetCount = picksPerDay * daysInMonth
         monthlyExpectedByToday = min(picksPerDay * dayOfMonth, monthlyTargetCount)
 
+        // Progress denominator: picksPerDay * daysInMonth. The numerator counts
+        // ConnectionEvents this month, which markCalled already dedups to at most
+        // one per contact per day — so this is "unique contact-days connected"
+        // versus the monthly goal, not a raw tap count.
         let request: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
         request.predicate = NSPredicate(format: "date >= %@", startOfMonth as NSDate)
 
