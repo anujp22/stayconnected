@@ -5,6 +5,7 @@
 //  Created by Anuj Patel on 8/27/25.
 //
 
+import CoreData
 import Testing
 @testable import StayConnected
 
@@ -59,6 +60,32 @@ struct StayConnectedTests {
         try viewModel.monthRolloverIfNeeded()
 
         #expect(person.timesPickedThisMonth == 0)
+    }
+
+    @MainActor
+    @Test func markCalledLogsOneEventPerContactPerDayButStillUpdatesState() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let viewModel = TodayViewModel(context: context)
+
+        let person = Person(context: context)
+        person.id = UUID()
+        person.displayName = "Dedup"
+        person.contactIdentifier = "dedup"
+        person.isInPool = true
+        try context.save()
+
+        try viewModel.markCalled(person)
+        try viewModel.markCalled(person)
+
+        let request: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
+        request.predicate = NSPredicate(format: "contactIdentifier == %@", "dedup")
+        let events = try context.fetch(request)
+
+        // Only one connection is logged per contact per day...
+        #expect(events.count == 1)
+        // ...but the per-call state still updates each time.
+        #expect(person.timesPickedThisMonth == 2)
+        #expect(person.lastCalledAt != nil)
     }
 
     @MainActor
