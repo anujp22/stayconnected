@@ -61,6 +61,33 @@ struct StayConnectedTests {
         #expect(person.timesPickedThisMonth == 0)
     }
 
+    @MainActor
+    @Test func resetTodayPicksClearsLastPickedSoContactsBecomeEligibleAgain() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let viewModel = TodayViewModel(context: context)
+
+        let settings = try AppSettings.fetchOrCreate(in: context)
+        settings.picksPerDay = 2
+        settings.minGapDays = 20
+
+        for index in 0..<2 {
+            let person = Person(context: context)
+            person.id = UUID()
+            person.displayName = "Person \(index)"
+            person.contactIdentifier = "person-\(index)"
+            person.isInPool = true
+        }
+        try context.save()
+
+        let generated = try viewModel.generateTodayPicks()
+        #expect(generated.allSatisfy { $0.lastPickedAt != nil })
+
+        try viewModel.resetTodayPicks()
+
+        #expect(generated.allSatisfy { $0.lastPickedAt == nil })
+        #expect(try DailyPick.fetchFor(date: Date(), in: context) == nil)
+    }
+
     @Test func catchUpReminderDateSchedulesThirtyMinutesAfterAMissedReminder() {
         let calendar = Calendar.current
         let reminderTime = calendar.date(from: DateComponents(year: 2026, month: 3, day: 14, hour: 10, minute: 0))!

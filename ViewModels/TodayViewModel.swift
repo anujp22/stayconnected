@@ -136,6 +136,13 @@ final class TodayViewModel: ObservableObject {
 
     func resetTodayPicks() throws {
         if let dp = try DailyPick.fetchFor(date: Date(), in: ctx) {
+            // Clear lastPickedAt for today's picks so a fresh Generate can
+            // surface them again instead of demoting them to the fallback
+            // pool because they're still inside the min-gap window.
+            if let ids = dp.contactIdentifiers as? [String] {
+                loadPersons(with: ids).forEach { $0.lastPickedAt = nil }
+            }
+
             ctx.delete(dp)
             try ctx.save()
         }
