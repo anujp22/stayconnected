@@ -88,6 +88,27 @@ struct StayConnectedTests {
         #expect(try DailyPick.fetchFor(date: Date(), in: context) == nil)
     }
 
+    @Test func phoneLinkPreservesLeadingPlusForInternationalNumbers() {
+        #expect(PhoneLink.normalize("+1 (502) 000-1111") == "+15020001111")
+        #expect(PhoneLink.normalize("+44 20 7946 0958") == "+442079460958")
+    }
+
+    @Test func phoneLinkStripsFormattingFromDomesticNumbers() {
+        #expect(PhoneLink.normalize("(502) 000-1111") == "5020001111")
+        #expect(PhoneLink.normalize(" 502.000.1111 ") == "5020001111")
+    }
+
+    @Test func phoneLinkReturnsNilWhenNoDigits() {
+        #expect(PhoneLink.normalize("") == nil)
+        #expect(PhoneLink.normalize("no number") == nil)
+    }
+
+    @Test func phoneLinkBuildsTelAndSmsURLs() {
+        #expect(PhoneLink.url(.tel, number: "+1 502 000 1111")?.absoluteString == "tel:+15020001111")
+        #expect(PhoneLink.url(.sms, number: "502-000-1111")?.absoluteString == "sms:5020001111")
+        #expect(PhoneLink.url(.tel, number: "abc") == nil)
+    }
+
     @Test func catchUpReminderDateSchedulesThirtyMinutesAfterAMissedReminder() {
         let calendar = Calendar.current
         let reminderTime = calendar.date(from: DateComponents(year: 2026, month: 3, day: 14, hour: 10, minute: 0))!
