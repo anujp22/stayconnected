@@ -1,33 +1,36 @@
 # StayConnected
 
-StayConnected is an iOS app designed to help people maintain meaningful relationships through small, consistent communication.
+StayConnected is a gentle iOS app for keeping relationships warm — a small daily nudge to reach out to the people who matter, without guilt or busywork.
 
-The app intelligently selects a few contacts each day and encourages you to reconnect with them — helping prevent relationships from fading due to busy schedules.
+Each day it suggests a few people to reconnect with, chosen by how overdue they are for *your* rhythm with them. Reaching out is one tap and logs itself, so there's no relationship-log to maintain.
 
 ---
 
 ## ✨ Features
 
-- Daily contact selection algorithm
-- Intelligent rotation to avoid repeated picks
-- Call tracking and connection history
-- Monthly progress tracking
-- Contact pool management
-- Dark Mode support
-- Minimal, modern SwiftUI interface
+- A few daily picks, ranked by how overdue each person is for their own cadence
+- Per-person cadence: Close, Regular, or Occasional
+- One-tap reach-out (call or message) that logs the check-in automatically
+- Gentle "not today" snooze that swaps in someone else
+- One-line context notes ("ask about her new job")
+- Connection history and a calm, non-shaming progress view
+- Adaptive daily reminder
+- Private by design — on device, no account
+- Dark Mode support; minimal, modern SwiftUI interface
 
 ---
 
 ## 🧠 How It Works
 
-StayConnected selects a small set of contacts each day based on:
+StayConnected chooses each day's picks by:
 
-- Minimum gap between interactions
-- Daily pick count
-- Randomized weighting for fairness
-- Fallback selection if the pool is too small
+- Cadence: how overdue a person is relative to their own desired rhythm
+- Pinned and never-contacted people surfaced first
+- A minimum gap so the same people don't repeat too soon
+- A fallback when the pool is small, so you always get suggestions
+- Snoozed people set aside until their snooze ends
 
-This ensures you consistently reconnect with people without repeating the same contacts too often.
+This keeps you reconnecting with the right people without it ever feeling like a chore.
 
 ---
 
@@ -110,10 +113,10 @@ The UI uses a minimal Apple-style design system with:
 
 ## 🚀 Future Improvements
 
-- Widgets
-- iCloud sync
-- Call logging automation
-- Analytics insights
+- Home & Lock Screen widgets ("who to reach out to today")
+- iCloud sync (the Core Data model is already CloudKit-compatible)
+- Birthday-aware picks
+- Deeper per-person history
 
 ---
 

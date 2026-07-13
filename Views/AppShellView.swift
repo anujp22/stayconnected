@@ -83,39 +83,45 @@ private struct OnboardingView: View {
                             .font(.largeTitle.bold())
                             .foregroundStyle(Color("TextPrimary"))
 
-                        Text("Build a small habit of reaching out to people who matter before life gets noisy.")
+                        Text("A gentle nudge to reach out to the people who matter — no guilt, no busywork.")
                             .font(.title3)
                             .foregroundStyle(Color("TextSecondary"))
                     }
 
                     onboardingCard(
-                        title: "Daily picks, not a giant to-do list",
+                        title: "A few people a day, not a to-do list",
                         systemImage: "sparkles",
-                        body: "We surface a short list each day so reconnecting feels light and sustainable."
+                        body: "Each day we suggest a small handful of people to reconnect with, so it stays light and easy to keep up."
                     )
 
                     onboardingCard(
-                        title: "Your contacts stay under your control",
-                        systemImage: "hand.raised.fill",
-                        body: "StayConnected only asks for Contacts access when you choose to add people to your pool."
+                        title: "Set your own rhythm",
+                        systemImage: "calendar",
+                        body: "Choose how often you’d like to stay in touch with each person — close, regular, or occasional — and we surface whoever’s most overdue."
                     )
 
                     onboardingCard(
-                        title: "Reminders work best after setup",
-                        systemImage: "bell.badge.fill",
-                        body: "Once your pool is ready, you can turn on a daily reminder in Settings with messaging that adapts to your progress."
+                        title: "Reaching out is the only step",
+                        systemImage: "hand.wave.fill",
+                        body: "Tap to call or message and it’s logged automatically. Busy day? Snooze anyone with a gentle “not today.”"
+                    )
+
+                    onboardingCard(
+                        title: "Private by design",
+                        systemImage: "lock.fill",
+                        body: "Everything stays on your device. No account, no sign-up, and Contacts access only when you choose to add someone."
                     )
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Recommended first steps")
+                        Text("Getting started")
                             .font(.headline)
                             .foregroundStyle(Color("TextPrimary"))
 
-                        Text("1. Add at least 10 contacts to your pool.")
+                        Text("1. Add a few people you’d like to keep up with.")
                             .foregroundStyle(Color("TextSecondary"))
-                        Text("2. Generate today’s picks.")
+                        Text("2. Open Home each day for who to reach out to.")
                             .foregroundStyle(Color("TextSecondary"))
-                        Text("3. Turn on reminders after the first day.")
+                        Text("3. Turn on a gentle daily reminder when you’re ready.")
                             .foregroundStyle(Color("TextSecondary"))
                     }
                     .padding(20)
