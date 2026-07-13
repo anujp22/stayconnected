@@ -93,7 +93,7 @@ Business logic including the contact selection algorithm.
 - SwiftUI
 - CoreData
 - Contacts Framework
-- iOS 17+
+- iOS 18+
 
 ---
 
@@ -110,7 +110,6 @@ The UI uses a minimal Apple-style design system with:
 
 ## 🚀 Future Improvements
 
-- Notification reminders
 - Widgets
 - iCloud sync
 - Call logging automation
