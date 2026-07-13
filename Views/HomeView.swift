@@ -131,12 +131,13 @@ struct HomeView: View {
                             isPresented: $showConnectSheet,
                             titleVisibility: .visible
                         ) {
-                            if let phone = (selectedPick ?? todayPicks.first)?.phoneNumber, !phone.isEmpty {
+                            if let pick = (selectedPick ?? todayPicks.first),
+                               let phone = pick.phoneNumber, !phone.isEmpty {
                                 Button("Call") {
-                                    connectVia(.tel, value: phone)
+                                    connectAndLog(.tel, value: phone, pick: pick)
                                 }
                                 Button("Message") {
-                                    connectVia(.sms, value: phone)
+                                    connectAndLog(.sms, value: phone, pick: pick)
                                 }
                             } else {
                                 Button("No number available", role: .destructive) { }
@@ -691,15 +692,25 @@ struct HomeView: View {
         return "Not connected yet"
     }
 
-    private func connectVia(_ scheme: PhoneLink.Scheme, value: String) {
+    /// Opens the call/message link and, when it actually launches, records the
+    /// check-in automatically — so reaching out is the only step the user takes.
+    /// (markCalled dedups to one connection per contact per day.)
+    private func connectAndLog(_ scheme: PhoneLink.Scheme, value: String, pick: HomePick) {
+        guard connectVia(scheme, value: value) else { return }
+        markPickAsCalled(pick)
+    }
+
+    @discardableResult
+    private func connectVia(_ scheme: PhoneLink.Scheme, value: String) -> Bool {
         guard let url = PhoneLink.url(scheme, number: value) else {
             connectErrorMessage = "No valid phone number for this contact."
             showConnectError = true
-            return
+            return false
         }
 
         successHaptic()
         openURL(url)
+        return true
     }
 
     private func lightHaptic() {
