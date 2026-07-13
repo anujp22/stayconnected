@@ -63,6 +63,23 @@ struct StayConnectedTests {
     }
 
     @MainActor
+    @Test func dailyPickContactIdentifierListRoundTrips() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+
+        let pick = DailyPick(context: context)
+        pick.id = UUID()
+        pick.date = Date().startOfDay
+
+        // Empty by default.
+        #expect(pick.contactIdentifierList == [])
+
+        // Order is preserved through the joined-string storage.
+        pick.contactIdentifierList = ["a-1", "b-2", "c-3"]
+        #expect(pick.contactIdentifiersRaw == "a-1\nb-2\nc-3")
+        #expect(pick.contactIdentifierList == ["a-1", "b-2", "c-3"])
+    }
+
+    @MainActor
     @Test func setNoteStoresTrimmedTextAndClearsWhenEmpty() throws {
         let context = PersistenceController(inMemory: true).container.viewContext
         let viewModel = TodayViewModel(context: context)
