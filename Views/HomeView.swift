@@ -51,21 +51,28 @@ private struct ContactAvatarInlineView: View {
     private func loadThumbnailIfNeeded() async {
         guard image == nil, !contactIdentifier.isEmpty else { return }
 
-        let store = CNContactStore()
-        let keys: [CNKeyDescriptor] = [CNContactThumbnailImageDataKey as CNKeyDescriptor]
-        let predicate = CNContact.predicateForContacts(withIdentifiers: [contactIdentifier])
+        // Fetch and decode the thumbnail off the main thread.
+        let identifier = contactIdentifier
+        let loaded = await Task.detached(priority: .utility) { () -> UIImage? in
+            let store = CNContactStore()
+            let keys: [CNKeyDescriptor] = [CNContactThumbnailImageDataKey as CNKeyDescriptor]
+            let predicate = CNContact.predicateForContacts(withIdentifiers: [identifier])
 
-        guard
-            let contact = try? store
-                .unifiedContacts(matching: predicate, keysToFetch: keys)
-                .first,
-            let data = contact.thumbnailImageData,
-            let uiImage = UIImage(data: data)
-        else {
-            return
+            guard
+                let contact = try? store
+                    .unifiedContacts(matching: predicate, keysToFetch: keys)
+                    .first,
+                let data = contact.thumbnailImageData
+            else {
+                return nil
+            }
+
+            return UIImage(data: data)
+        }.value
+
+        if let loaded {
+            image = loaded
         }
-
-        image = uiImage
     }
 
     private func initials(from name: String) -> String {
@@ -532,12 +539,15 @@ struct HomeView: View {
             return
         }
 
+        // Build the rows from Core Data immediately; phone numbers are
+        // resolved from the Contacts store asynchronously so we never block
+        // the main thread on every appear/foreground/tab switch.
         todayPicks = people.compactMap { person in
             guard let identifier = person.contactIdentifier else { return nil }
             return HomePick(
                 identifier: identifier,
                 displayName: person.displayName ?? "Unknown",
-                phoneNumber: fetchPhoneNumber(for: identifier),
+                phoneNumber: nil,
                 lastConnectedText: lastConnectedText(for: person),
                 hasConnectedBefore: person.lastCalledAt != nil
             )
@@ -545,6 +555,33 @@ struct HomeView: View {
 
         selectedPick = todayPicks.first
         refreshMonthlyProgress()
+
+        let identifiers = todayPicks.map(\.identifier)
+        Task {
+            let numbers = await Self.loadPhoneNumbers(for: identifiers)
+            applyPhoneNumbers(numbers)
+        }
+    }
+
+    private func applyPhoneNumbers(_ numbers: [String: String]) {
+        guard !numbers.isEmpty else { return }
+
+        todayPicks = todayPicks.map { pick in
+            guard let number = numbers[pick.identifier] else { return pick }
+            return HomePick(
+                identifier: pick.identifier,
+                displayName: pick.displayName,
+                phoneNumber: number,
+                lastConnectedText: pick.lastConnectedText,
+                hasConnectedBefore: pick.hasConnectedBefore
+            )
+        }
+
+        if let selectedID = selectedPick?.identifier {
+            selectedPick = todayPicks.first { $0.identifier == selectedID }
+        } else {
+            selectedPick = todayPicks.first
+        }
     }
 
     // MARK: - Actions
@@ -626,16 +663,24 @@ struct HomeView: View {
         monthlyConnectedCount = monthlyConnections
     }
 
-    private func fetchPhoneNumber(for identifier: String) -> String? {
-        let store = CNContactStore()
-        let keys: [CNKeyDescriptor] = [CNContactPhoneNumbersKey as CNKeyDescriptor]
-        let predicate = CNContact.predicateForContacts(withIdentifiers: [identifier])
+    /// Resolves phone numbers for the given contact identifiers off the main
+    /// thread. Runs on a detached background task so the Contacts store work
+    /// never blocks UI updates.
+    private static func loadPhoneNumbers(for identifiers: [String]) async -> [String: String] {
+        await Task.detached(priority: .utility) {
+            let store = CNContactStore()
+            let keys: [CNKeyDescriptor] = [CNContactPhoneNumbersKey as CNKeyDescriptor]
 
-        guard let contact = try? store.unifiedContacts(matching: predicate, keysToFetch: keys).first else {
-            return nil
-        }
-
-        return contact.phoneNumbers.first?.value.stringValue
+            var result: [String: String] = [:]
+            for identifier in identifiers where !identifier.isEmpty {
+                let predicate = CNContact.predicateForContacts(withIdentifiers: [identifier])
+                if let contact = try? store.unifiedContacts(matching: predicate, keysToFetch: keys).first,
+                   let number = contact.phoneNumbers.first?.value.stringValue {
+                    result[identifier] = number
+                }
+            }
+            return result
+        }.value
     }
 
     private func lastConnectedText(for person: Person) -> String {
