@@ -8,7 +8,6 @@ struct SummaryView: View {
     // MARK: - State
     @State private var poolCount = 0
     @State private var calledThisMonth = 0
-    @State private var remainingThisMonth = 0
     @State private var calledPeople: [Person] = []
     @State private var neverContactedPeople: [Person] = []
     @State private var recentEvents: [ConnectionEvent] = []
@@ -64,9 +63,9 @@ struct SummaryView: View {
                         )
 
                         StatCard(
-                            title: "Remaining This Month",
-                            value: "\(remainingThisMonth)",
-                            color: Color("Warning")
+                            title: "Not Yet Reached",
+                            value: "\(neverContactedPeople.count)",
+                            color: Color("BrandPrimary")
                         )
                     }
                     .padding(.top, 20)
@@ -260,7 +259,6 @@ struct SummaryView: View {
         guard let pool = try? context.fetch(request) else {
             poolCount = 0
             calledThisMonth = 0
-            remainingThisMonth = 0
             calledPeople = []
             neverContactedPeople = []
             recentEvents = []
@@ -291,17 +289,6 @@ struct SummaryView: View {
             .sorted { ($0.displayName ?? "") < ($1.displayName ?? "") }
 
         calledThisMonth = calledPeople.count
-        let settings: AppSettings?
-        do {
-            settings = try AppSettings.fetchOrCreate(in: context)
-        } catch {
-            settings = nil
-        }
-
-        let picksPerDay = max(Int(settings?.picksPerDay ?? 0), 0)
-        let daysInMonth = calendar.range(of: .day, in: .month, for: now)?.count ?? 30
-        let monthlyTarget = picksPerDay * daysInMonth
-        remainingThisMonth = max(monthlyTarget - calledThisMonth, 0)
 
         let recentEventsRequest: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
         recentEventsRequest.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
