@@ -41,6 +41,8 @@ enum Theme {
         static let brand = Color("BrandPrimary")
         static let deep = Color("PrimaryDeep")
         static let sand = Color("AccentSand")
+        /// Warm secondary accent (terracotta) — streaks, celebration, warmth.
+        static let accentWarm = Color("AccentWarm")
         static let background = Color("Background")
         static let card = Color("Card")
         static let success = Color("Success")

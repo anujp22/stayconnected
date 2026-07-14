@@ -14,7 +14,7 @@ struct StreakFlame: View {
             HStack(spacing: 4) {
                 Image(systemName: "flame.fill")
                     .font(.footnote.weight(.bold))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Theme.Palette.accentWarm)
 
                 Text("\(streak)")
                     .font(.footnote.weight(.bold))
@@ -27,7 +27,7 @@ struct StreakFlame: View {
                 Capsule().fill(Theme.Palette.sand.opacity(0.5))
             )
             .overlay(
-                Capsule().stroke(Color.orange.opacity(0.25), lineWidth: 1)
+                Capsule().stroke(Theme.Palette.accentWarm.opacity(0.3), lineWidth: 1)
             )
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(streak) day streak")

@@ -411,7 +411,7 @@ private struct SummaryHero: View {
 
                 streakRow(
                     icon: "flame.fill",
-                    iconColor: .orange,
+                    iconColor: Theme.Palette.accentWarm,
                     title: "Current streak",
                     value: currentStreakLabel
                 )
