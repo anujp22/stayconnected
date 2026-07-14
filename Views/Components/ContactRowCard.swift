@@ -7,6 +7,7 @@ struct ContactRowCard: View {
     let subtitle: String
     let phone: String?
     let isPinned: Bool
+    var contactIdentifier: String = ""
     var cadenceLabel: String? = nil
 
     var onTap: () -> Void = {}
@@ -16,46 +17,36 @@ struct ContactRowCard: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 14) {
-                Circle()
-                    .fill(Color("BrandPrimary").opacity(0.16))
-                    .frame(width: 44, height: 44)
-                    .overlay(
-                        Image(systemName: "person.fill")
-                            .foregroundStyle(Color("BrandPrimary"))
-                    )
+                ContactAvatarInlineView(
+                    contactIdentifier: contactIdentifier,
+                    displayName: name
+                )
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
                         Text(name)
                             .font(.headline)
-                            .foregroundStyle(Color("TextPrimary"))
+                            .foregroundStyle(Theme.Palette.textPrimary)
 
                         if isPinned {
                             Image(systemName: "star.fill")
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(Color("AccentSand").opacity(0.9))
+                                .foregroundStyle(Theme.Palette.sand.opacity(0.9))
                         }
 
                         if let cadenceLabel {
-                            Text(cadenceLabel)
-                                .font(.caption2.weight(.semibold))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(
-                                    Capsule().fill(Color("BrandPrimary").opacity(0.12))
-                                )
-                                .foregroundStyle(Color("BrandPrimary"))
+                            Chip(text: cadenceLabel, fillOpacity: 0.12)
                         }
                     }
 
                     Text(subtitle)
                         .font(.subheadline)
-                        .foregroundStyle(Color("TextSecondary"))
+                        .foregroundStyle(Theme.Palette.textSecondary)
 
                     if let phone, !phone.isEmpty {
                         Text(phone)
                             .font(.footnote)
-                            .foregroundStyle(Color("TextSecondary"))
+                            .foregroundStyle(Theme.Palette.textSecondary)
                     }
                 }
 
@@ -63,18 +54,11 @@ struct ContactRowCard: View {
 
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color("TextSecondary").opacity(0.8))
+                    .foregroundStyle(Theme.Palette.textSecondary.opacity(0.8))
             }
             .padding()
             .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color("Card"))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color("Divider").opacity(0.85), lineWidth: 1)
-            )
+            .cardSurface(radius: 18)
         }
         .buttonStyle(PressableCardStyle())
         .accessibilityElement(children: .combine)

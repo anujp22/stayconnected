@@ -3,12 +3,43 @@ import SwiftUI
 
 // MARK: - App Tabs
 
-enum AppTab: Hashable {
+enum AppTab: Hashable, CaseIterable {
     // MARK: - Cases
     case home
     case pool
     case summary
     case settings
+
+    // MARK: - Display Metadata
+
+    var title: String {
+        switch self {
+        case .home: return "Home"
+        case .pool: return "Pool"
+        case .summary: return "Summary"
+        case .settings: return "Settings"
+        }
+    }
+
+    /// Outline glyph shown when the tab is not selected.
+    var icon: String {
+        switch self {
+        case .home: return "house"
+        case .pool: return "person.2"
+        case .summary: return "chart.bar"
+        case .settings: return "gearshape"
+        }
+    }
+
+    /// Filled glyph shown when the tab is selected.
+    var selectedIcon: String {
+        switch self {
+        case .home: return "house.fill"
+        case .pool: return "person.2.fill"
+        case .summary: return "chart.bar.fill"
+        case .settings: return "gearshape.fill"
+        }
+    }
 }
 
 struct AppShellView: View {
@@ -23,28 +54,23 @@ struct AppShellView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             HomeView(selectedTab: $selectedTab)
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
-                }
                 .tag(AppTab.home)
+                .toolbar(.hidden, for: .tabBar)
 
             PoolView()
-                .tabItem {
-                    Label("Pool", systemImage: "person.2.fill")
-                }
                 .tag(AppTab.pool)
+                .toolbar(.hidden, for: .tabBar)
 
             SummaryView()
-                .tabItem {
-                    Label("Summary", systemImage: "chart.bar.fill")
-                }
                 .tag(AppTab.summary)
-            
+                .toolbar(.hidden, for: .tabBar)
+
             SettingsView(context: ctx)
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape.fill")
-                }
                 .tag(AppTab.settings)
+                .toolbar(.hidden, for: .tabBar)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            FloatingTabBar(selectedTab: $selectedTab)
         }
         .fullScreenCover(isPresented: onboardingBinding) {
             OnboardingView(
@@ -73,18 +99,21 @@ private struct OnboardingView: View {
     let onStartSetup: () -> Void
     let onSkip: () -> Void
 
+    @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Welcome to StayConnected")
-                            .font(.largeTitle.bold())
-                            .foregroundStyle(Color("TextPrimary"))
+                            .font(.system(.largeTitle, design: .serif).weight(.bold))
+                            .foregroundStyle(Theme.brandGradient)
 
                         Text("A gentle nudge to reach out to the people who matter — no guilt, no busywork.")
                             .font(.title3)
-                            .foregroundStyle(Color("TextSecondary"))
+                            .foregroundStyle(Theme.Palette.textSecondary)
                     }
 
                     onboardingCard(
@@ -114,25 +143,35 @@ private struct OnboardingView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Getting started")
                             .font(.headline)
-                            .foregroundStyle(Color("TextPrimary"))
+                            .foregroundStyle(Theme.Palette.textPrimary)
 
                         Text("1. Add a few people you’d like to keep up with.")
-                            .foregroundStyle(Color("TextSecondary"))
+                            .foregroundStyle(Theme.Palette.textSecondary)
                         Text("2. Open Home each day for who to reach out to.")
-                            .foregroundStyle(Color("TextSecondary"))
+                            .foregroundStyle(Theme.Palette.textSecondary)
                         Text("3. Turn on a gentle daily reminder when you’re ready.")
-                            .foregroundStyle(Color("TextSecondary"))
+                            .foregroundStyle(Theme.Palette.textSecondary)
                     }
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
                         RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .fill(Color("Card"))
+                            .fill(Theme.Palette.card)
                     )
                 }
                 .padding(24)
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 16)
             }
-            .background(Color("Background").ignoresSafeArea())
+            .background(Theme.Palette.background.ignoresSafeArea())
+            .onAppear {
+                guard !appeared else { return }
+                if reduceMotion {
+                    appeared = true
+                } else {
+                    withAnimation(.easeOut(duration: 0.5)) { appeared = true }
+                }
+            }
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 12) {
                     Button("Add Contacts") {
@@ -166,28 +205,21 @@ private struct OnboardingView: View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: systemImage)
                 .font(.title3)
-                .foregroundStyle(Color("BrandPrimary"))
+                .foregroundStyle(Theme.Palette.brand)
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(title)
                     .font(.headline)
-                    .foregroundStyle(Color("TextPrimary"))
+                    .foregroundStyle(Theme.Palette.textPrimary)
 
                 Text(body)
-                    .foregroundStyle(Color("TextSecondary"))
+                    .foregroundStyle(Theme.Palette.textSecondary)
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color("Card"))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color("Divider").opacity(0.85), lineWidth: 1)
-        )
+        .cardSurface(radius: 24)
         .accessibilityElement(children: .combine)
     }
 }
