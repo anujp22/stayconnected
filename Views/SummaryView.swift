@@ -15,6 +15,9 @@ struct SummaryView: View {
     @State private var currentStreak = 0
     @State private var longestStreak = 0
     @State private var selectedPerson: Person?
+    @State private var dailyCounts: [Date: Int] = [:]
+    @State private var monthlyConnectedCount = 0
+    @State private var monthlyTargetCount = 0
     // MARK: - View
     var body: some View {
         NavigationStack {
@@ -24,28 +27,29 @@ struct SummaryView: View {
                         Text("Summary")
                             .font(.largeTitle)
                             .fontWeight(.bold)
-                            .foregroundStyle(Color("TextPrimary"))
+                            .foregroundStyle(Theme.Palette.textPrimary)
 
                         Text("Your progress and activity")
                             .font(.title3)
-                            .foregroundStyle(Color("TextSecondary"))
+                            .foregroundStyle(Theme.Palette.textSecondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, 8)
 
-                    // MARK: Streaks
-                    HStack(spacing: 16) {
-                        StatCard(
-                            title: "Current Streak",
-                            value: currentStreakLabel,
-                            color: Color("BrandPrimary")
-                        )
+                    // MARK: Month + Streak Hero
+                    SummaryHero(
+                        progress: monthlyProgress,
+                        connected: monthlyConnectedCount,
+                        target: monthlyTargetCount,
+                        currentStreak: currentStreak,
+                        longestStreak: longestStreak,
+                        currentStreakLabel: currentStreakLabel,
+                        longestStreakLabel: longestStreakLabel
+                    )
 
-                        StatCard(
-                            title: "Longest Streak",
-                            value: longestStreakLabel,
-                            color: Color("PrimaryDeep")
-                        )
+                    // MARK: Activity
+                    SummarySectionCard(title: "Activity") {
+                        ActivityHeatmap(counts: dailyCounts)
                     }
 
                     // MARK: Top Stats
@@ -53,19 +57,19 @@ struct SummaryView: View {
                         StatCard(
                             title: "People in Pool",
                             value: "\(poolCount)",
-                            color: Color("BrandPrimary")
+                            color: Theme.Palette.brand
                         )
 
                         StatCard(
                             title: "Connected This Month",
                             value: "\(calledThisMonth)",
-                            color: Color("Success")
+                            color: Theme.Palette.success
                         )
 
                         StatCard(
                             title: "Not Yet Reached",
                             value: "\(neverContactedPeople.count)",
-                            color: Color("BrandPrimary")
+                            color: Theme.Palette.brand
                         )
                     }
                     .padding(.top, 20)
@@ -75,7 +79,7 @@ struct SummaryView: View {
                         if calledPeople.isEmpty {
                             Text("No one marked as connected yet this month.")
                                 .font(.subheadline)
-                                .foregroundStyle(Color("TextSecondary"))
+                                .foregroundStyle(Theme.Palette.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         } else {
                             VStack(spacing: 0) {
@@ -86,16 +90,16 @@ struct SummaryView: View {
                                         HStack {
                                             Text(person.displayName ?? "Unknown")
                                                 .font(.subheadline)
-                                                .foregroundStyle(Color("TextPrimary"))
+                                                .foregroundStyle(Theme.Palette.textPrimary)
                                             Spacer()
                                             if let lastCalled = person.lastCalledAt {
                                                 Text(lastCalled, format: .dateTime.month().day())
                                                     .font(.caption)
-                                                    .foregroundStyle(Color("TextSecondary"))
+                                                    .foregroundStyle(Theme.Palette.textSecondary)
                                             }
                                             Image(systemName: "chevron.right")
                                                 .font(.caption)
-                                                .foregroundStyle(Color("TextSecondary").opacity(0.7))
+                                                .foregroundStyle(Theme.Palette.textSecondary.opacity(0.7))
                                         }
                                         .padding(.vertical, 10)
                                         .contentShape(Rectangle())
@@ -104,7 +108,7 @@ struct SummaryView: View {
 
                                     if person.objectID != calledPeople.last?.objectID {
                                         Divider()
-                                            .overlay(Color("Divider"))
+                                            .overlay(Theme.Palette.divider)
                                     }
                                 }
                             }
@@ -116,7 +120,7 @@ struct SummaryView: View {
                         if neverContactedPeople.isEmpty {
                             Text("Everyone in your pool has been contacted at least once.")
                                 .font(.subheadline)
-                                .foregroundStyle(Color("TextSecondary"))
+                                .foregroundStyle(Theme.Palette.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         } else {
                             VStack(spacing: 0) {
@@ -127,14 +131,14 @@ struct SummaryView: View {
                                         HStack {
                                             Text(person.displayName ?? "Unknown")
                                                 .font(.subheadline)
-                                                .foregroundStyle(Color("TextPrimary"))
+                                                .foregroundStyle(Theme.Palette.textPrimary)
                                             Spacer()
                                             Text("Never")
                                                 .font(.caption)
-                                                .foregroundStyle(Color("TextSecondary"))
+                                                .foregroundStyle(Theme.Palette.textSecondary)
                                             Image(systemName: "chevron.right")
                                                 .font(.caption)
-                                                .foregroundStyle(Color("TextSecondary").opacity(0.7))
+                                                .foregroundStyle(Theme.Palette.textSecondary.opacity(0.7))
                                         }
                                         .padding(.vertical, 10)
                                         .contentShape(Rectangle())
@@ -143,7 +147,7 @@ struct SummaryView: View {
 
                                     if person.objectID != neverContactedPeople.last?.objectID {
                                         Divider()
-                                            .overlay(Color("Divider"))
+                                            .overlay(Theme.Palette.divider)
                                     }
                                 }
                             }
@@ -155,7 +159,7 @@ struct SummaryView: View {
                         if recentEvents.isEmpty {
                             Text("No recent activity yet. Mark a contact as called to start building history.")
                                 .font(.subheadline)
-                                .foregroundStyle(Color("TextSecondary"))
+                                .foregroundStyle(Theme.Palette.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         } else {
                             VStack(spacing: 0) {
@@ -169,21 +173,21 @@ struct SummaryView: View {
                                                 VStack(alignment: .leading, spacing: 4) {
                                                     Text(activityNameLabel(for: event))
                                                         .font(.subheadline)
-                                                        .foregroundStyle(Color("TextPrimary"))
+                                                        .foregroundStyle(Theme.Palette.textPrimary)
 
                                                     Text(activityDateLabel(for: event.date))
                                                         .font(.caption)
-                                                        .foregroundStyle(Color("TextSecondary"))
+                                                        .foregroundStyle(Theme.Palette.textSecondary)
                                                 }
 
                                                 Spacer()
 
                                                 Image(systemName: "checkmark.circle.fill")
-                                                    .foregroundStyle(Color("Success"))
+                                                    .foregroundStyle(Theme.Palette.success)
 
                                                 Image(systemName: "chevron.right")
                                                     .font(.caption)
-                                                    .foregroundStyle(Color("TextSecondary").opacity(0.7))
+                                                    .foregroundStyle(Theme.Palette.textSecondary.opacity(0.7))
                                             }
                                             .padding(.vertical, 10)
                                             .contentShape(Rectangle())
@@ -197,20 +201,20 @@ struct SummaryView: View {
 
                                                 Text(activityDateLabel(for: event.date))
                                                     .font(.caption)
-                                                    .foregroundStyle(Color("TextSecondary"))
+                                                    .foregroundStyle(Theme.Palette.textSecondary)
                                             }
 
                                             Spacer()
 
                                             Image(systemName: "checkmark.circle.fill")
-                                                .foregroundStyle(Color("Success"))
+                                                .foregroundStyle(Theme.Palette.success)
                                         }
                                         .padding(.vertical, 10)
                                     }
 
                                     if event.objectID != recentEvents.last?.objectID {
                                         Divider()
-                                            .overlay(Color("Divider"))
+                                            .overlay(Theme.Palette.divider)
                                     }
                                 }
                             }
@@ -221,17 +225,17 @@ struct SummaryView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("How this works")
                             .font(.headline)
-                            .foregroundStyle(Color("TextPrimary"))
+                            .foregroundStyle(Theme.Palette.textPrimary)
 
                         Text("This summary shows your streak progress, how many people are currently in your connection pool, who you have marked as called this month, who still has never been contacted, and your most recent connection activity.")
                             .font(.subheadline)
-                            .foregroundStyle(Color("TextSecondary"))
+                            .foregroundStyle(Theme.Palette.textSecondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding()
             }
-            .background(Color("Background").ignoresSafeArea())
+            .background(Theme.Palette.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(item: $selectedPerson) { person in
                 ContactHistoryView(person: person)
@@ -264,6 +268,9 @@ struct SummaryView: View {
             recentEvents = []
             currentStreak = 0
             longestStreak = 0
+            dailyCounts = [:]
+            monthlyConnectedCount = 0
+            monthlyTargetCount = 0
             return
         }
 
@@ -308,10 +315,30 @@ struct SummaryView: View {
             let streaks = NotificationsService.streaks(from: allEvents)
             currentStreak = streaks.current
             longestStreak = streaks.longest
+
+            // Bucket every event into its start-of-day for the heatmap, and
+            // count this month's connections for the progress ring.
+            var buckets: [Date: Int] = [:]
+            var monthCount = 0
+            for event in allEvents {
+                guard let date = event.date else { continue }
+                let day = calendar.startOfDay(for: date)
+                buckets[day, default: 0] += 1
+                if date >= startOfMonth { monthCount += 1 }
+            }
+            dailyCounts = buckets
+            monthlyConnectedCount = monthCount
         } catch {
             currentStreak = 0
             longestStreak = 0
+            dailyCounts = [:]
+            monthlyConnectedCount = 0
         }
+
+        // Monthly target mirrors Home: picks-per-day across the whole month.
+        let daysInMonth = calendar.range(of: .day, in: .month, for: now)?.count ?? 30
+        let picksPerDay = (try? AppSettings.effective(in: context).picksPerDay) ?? 0
+        monthlyTargetCount = max(picksPerDay, 0) * daysInMonth
     }
 
     private func activityNameLabel(for event: ConnectionEvent) -> String {
@@ -333,6 +360,11 @@ struct SummaryView: View {
     }
 
     // MARK: - Derived Values
+    private var monthlyProgress: Double {
+        guard monthlyTargetCount > 0 else { return 0 }
+        return min(Double(monthlyConnectedCount) / Double(monthlyTargetCount), 1.0)
+    }
+
     private var currentStreakLabel: String {
         streakLabel(for: currentStreak)
     }
@@ -343,6 +375,124 @@ struct SummaryView: View {
 
     private func streakLabel(for value: Int) -> String {
         value == 1 ? "1 day" : "\(value) days"
+    }
+}
+
+// MARK: - Summary Hero
+
+/// The top-of-Summary hero: a month-progress ring paired with the streak
+/// figures. Warm, forward-looking framing — no "behind pace" language.
+private struct SummaryHero: View {
+    let progress: Double
+    let connected: Int
+    let target: Int
+    let currentStreak: Int
+    let longestStreak: Int
+    let currentStreakLabel: String
+    let longestStreakLabel: String
+
+    var body: some View {
+        HStack(spacing: Theme.Space.lg) {
+            MonthProgressRing(
+                progress: progress,
+                connected: connected,
+                target: target
+            )
+
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("This month")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.Palette.textPrimary)
+                    Text(target > 0 ? "\(connected) of \(target) connections" : "\(connected) connections")
+                        .font(.caption)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                }
+
+                streakRow(
+                    icon: "flame.fill",
+                    iconColor: Theme.Palette.accentWarm,
+                    title: "Current streak",
+                    value: currentStreakLabel
+                )
+
+                streakRow(
+                    icon: "trophy.fill",
+                    iconColor: Theme.Palette.brand,
+                    title: "Longest streak",
+                    value: longestStreakLabel
+                )
+            }
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .cardSurface()
+        .accessibilityElement(children: .combine)
+    }
+
+    private func streakRow(icon: String, iconColor: Color, title: String, value: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.footnote)
+                .foregroundStyle(iconColor)
+                .frame(width: 18)
+
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(Theme.Palette.textSecondary)
+
+            Spacer(minLength: 6)
+
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Theme.Palette.textPrimary)
+        }
+    }
+}
+
+/// A circular month-progress indicator with the count at its center. The trim
+/// arc is filled with the signature brand gradient and springs to its value.
+private struct MonthProgressRing: View {
+    let progress: Double
+    let connected: Int
+    let target: Int
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Theme.Palette.divider.opacity(0.5), lineWidth: 10)
+
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(
+                    Theme.brandGradient,
+                    style: StrokeStyle(lineWidth: 10, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .animation(reduceMotion ? nil : .spring(response: 0.6, dampingFraction: 0.85), value: progress)
+
+            VStack(spacing: 0) {
+                Text("\(connected)")
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundStyle(Theme.Palette.textPrimary)
+                if target > 0 {
+                    Text("of \(target)")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                }
+            }
+        }
+        .frame(width: 108, height: 108)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            target > 0
+            ? "\(connected) of \(target) connections this month"
+            : "\(connected) connections this month"
+        )
     }
 }
 
@@ -359,23 +509,22 @@ struct StatCard: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.subheadline)
-                .foregroundStyle(Color("TextSecondary"))
+                .foregroundStyle(Theme.Palette.textSecondary)
 
             Text(value)
                 .font(.system(size: 30, weight: .bold, design: .rounded))
-                .foregroundStyle(color)
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [color, color.opacity(0.65)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: 96)
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color("Card"))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(Color("Divider").opacity(0.8), lineWidth: 1)
-        )
+        .cardSurface(radius: 18, strokeOpacity: 0.8)
     }
 }
 
@@ -395,20 +544,13 @@ struct SummarySectionCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.headline)
-                .foregroundStyle(Color("TextPrimary"))
+                .foregroundStyle(Theme.Palette.textPrimary)
 
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color("Card"))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(Color("Divider").opacity(0.8), lineWidth: 1)
-        )
+        .cardSurface(radius: 18, strokeOpacity: 0.8)
     }
 }
 

@@ -35,10 +35,7 @@ struct SettingsView: View {
 
     // MARK: - Private Helpers
 
-    private func successHaptic() {
-        let g = UINotificationFeedbackGenerator()
-        g.notificationOccurred(.success)
-    }
+    private func successHaptic() { Haptics.success() }
 
     // MARK: - Initialization
 
@@ -56,16 +53,16 @@ struct SettingsView: View {
                         Text("Settings")
                             .font(.largeTitle)
                             .fontWeight(.bold)
-                            .foregroundStyle(Color("TextPrimary"))
+                            .foregroundStyle(Theme.Palette.textPrimary)
 
                         Text("Customize your experience")
                             .font(.title3)
-                            .foregroundStyle(Color("TextSecondary"))
+                            .foregroundStyle(Theme.Palette.textSecondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, 8)
 
-                    SettingsCard(title: "Call frequency") {
+                    SettingsCard(title: "Call frequency", systemImage: "slider.horizontal.3") {
                         Stepper(
                             "Picks per day: \(viewModel.picksPerDay)",
                             value: $viewModel.picksPerDay,
@@ -81,15 +78,15 @@ struct SettingsView: View {
                         )
                     }
 
-                    SettingsCard(title: "How picks work") {
+                    SettingsCard(title: "How picks work", systemImage: "info.circle") {
                         Text("• Picks stay the same all day unless you reset them.")
                         Text("• We try to avoid repeats for at least \(viewModel.minGapDays) days.")
                         Text("• If your pool is too small, the gap rule may relax.")
                     }
                     .font(.footnote)
-                    .foregroundStyle(Color("TextSecondary"))
+                    .foregroundStyle(Theme.Palette.textSecondary)
 
-                    SettingsCard(title: "Pool size guidance") {
+                    SettingsCard(title: "Pool size guidance", systemImage: "person.2") {
                         SettingsRow(
                             title: "Recommended pool size",
                             value: "\(viewModel.recommendedPoolSize)+"
@@ -101,7 +98,7 @@ struct SettingsView: View {
                         )
                     }
 
-                    SettingsCard(title: "Appearance") {
+                    SettingsCard(title: "Appearance", systemImage: "paintbrush") {
                         VStack(alignment: .leading, spacing: 12) {
                             Picker("Appearance", selection: $appearanceMode) {
                                 Text("System").tag("system")
@@ -112,11 +109,11 @@ struct SettingsView: View {
 
                             Text("Choose whether StayConnected follows your device appearance or always uses light or dark mode.")
                                 .font(.footnote)
-                                .foregroundStyle(Color("TextSecondary"))
+                                .foregroundStyle(Theme.Palette.textSecondary)
                         }
                     }
 
-                    SettingsCard(title: "Reminder") {
+                    SettingsCard(title: "Reminder", systemImage: "bell") {
                         Toggle("Daily reminder", isOn: $viewModel.remindersEnabled)
                             .accessibilityHint("Enable a notification that reflects your current progress for the day.")
 
@@ -130,28 +127,23 @@ struct SettingsView: View {
 
                         Divider().opacity(0.2)
 
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Text("Preview")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Color("TextPrimary"))
+                                .foregroundStyle(Theme.Palette.textPrimary)
 
-                            Text(viewModel.reminderPreviewTitle)
-                                .font(.subheadline)
-                                .foregroundStyle(Color("TextPrimary"))
-
-                            Text(viewModel.reminderPreviewBody)
-                                .font(.footnote)
-                                .foregroundStyle(Color("TextSecondary"))
+                            NotificationPreviewBubble(
+                                title: viewModel.reminderPreviewTitle,
+                                message: viewModel.reminderPreviewBody
+                            )
                         }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("\(viewModel.reminderPreviewTitle). \(viewModel.reminderPreviewBody)")
                     }
 
                     Spacer(minLength: 90)
                 }
                 .padding()
             }
-            .background(Color("Background").ignoresSafeArea())
+            .background(Theme.Palette.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .task {
                 do {
@@ -225,7 +217,7 @@ struct SettingsView: View {
 
                     Text("Changes apply immediately.")
                         .font(.footnote)
-                        .foregroundStyle(Color("TextSecondary"))
+                        .foregroundStyle(Theme.Palette.textSecondary)
                 }
                 .padding()
                 .background(.ultraThinMaterial)
@@ -267,26 +259,84 @@ struct SettingsView: View {
 private struct SettingsCard<Content: View>: View {
     // MARK: - Properties
     let title: String
+    var systemImage: String? = nil
     @ViewBuilder var content: Content
 
     // MARK: - View
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(Color("TextPrimary"))
+            HStack(spacing: 8) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.Palette.brand)
+                }
+
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(Theme.Palette.textPrimary)
+            }
 
             content
         }
         .padding()
+        .cardSurface(radius: 20)
+    }
+}
+
+/// A mock iOS notification banner so users see roughly what the daily reminder
+/// will look like on their lock screen — app icon, title, and body on a
+/// material card.
+private struct NotificationPreviewBubble: View {
+    let title: String
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Theme.brandGradient)
+                .frame(width: 38, height: 38)
+                .overlay(
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text("StayConnected")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.Palette.textPrimary)
+                    Spacer()
+                    Text("now")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                }
+
+                Text(title)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Theme.Palette.textPrimary)
+                    .lineLimit(1)
+
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(Theme.Palette.textSecondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color("Card"))
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.regularMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color("Divider").opacity(0.85), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Theme.Palette.divider.opacity(0.5), lineWidth: 1)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Notification preview. \(title). \(message)")
     }
 }
 
@@ -299,10 +349,10 @@ private struct SettingsRow: View {
     var body: some View {
         HStack {
             Text(title)
-                .foregroundStyle(Color("TextPrimary"))
+                .foregroundStyle(Theme.Palette.textPrimary)
             Spacer()
             Text(value)
-                .foregroundStyle(Color("TextSecondary"))
+                .foregroundStyle(Theme.Palette.textSecondary)
         }
         .font(.subheadline)
     }

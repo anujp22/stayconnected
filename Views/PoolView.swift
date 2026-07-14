@@ -50,11 +50,11 @@ struct PoolView: View {
                                 Text("Contact Pool")
                                     .font(.largeTitle)
                                     .fontWeight(.bold)
-                                    .foregroundStyle(Color("TextPrimary"))
+                                    .foregroundStyle(Theme.Palette.textPrimary)
 
                                 Text("\(viewModel.people.count) active connections")
                                     .font(.subheadline)
-                                    .foregroundStyle(Color("TextSecondary"))
+                                    .foregroundStyle(Theme.Palette.textSecondary)
                             }
 
                             Spacer()
@@ -64,7 +64,7 @@ struct PoolView: View {
                         // Search
                         HStack(spacing: 10) {
                             Image(systemName: "magnifyingglass")
-                                .foregroundStyle(Color("TextSecondary"))
+                                .foregroundStyle(Theme.Palette.textSecondary)
 
                             TextField("Search contacts", text: $viewModel.searchText)
                                 .textInputAutocapitalization(.never)
@@ -77,34 +77,48 @@ struct PoolView: View {
                                     viewModel.searchText = ""
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
-                                        .foregroundStyle(Color("TextSecondary"))
+                                        .foregroundStyle(Theme.Palette.textSecondary)
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color("Card"))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color("Divider").opacity(0.85), lineWidth: 1)
-                        )
+                        .cardSurface(radius: 16)
                     }
                     .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
                     .listRowSeparator(.hidden)
-                    .listRowBackground(Color("Background"))
+                    .listRowBackground(Theme.Palette.background)
+                }
+
+                if viewModel.people.isEmpty {
+                    Section {
+                        PoolEmptyState { handleAddContactTap() }
+                            .listRowInsets(EdgeInsets(top: 24, leading: 16, bottom: 16, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Theme.Palette.background)
+                    }
+                } else if viewModel.filteredPeople.isEmpty {
+                    Section {
+                        Text("No matches for “\(viewModel.searchText)”")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.Palette.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 24)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Theme.Palette.background)
+                    }
                 }
 
                 Section {
                     ForEach(viewModel.filteredPeople, id: \.objectID) { person in
                         ContactRowCard(
                             name: person.displayName ?? "Unknown",
-                            subtitle: "Tap to connect",
+                            subtitle: lastConnectedSubtitle(for: person),
                             phone: (nil as String?),
                             isPinned: person.isPinned,
+                            contactIdentifier: person.contactIdentifier ?? "",
                             cadenceLabel: person.contactCadence.label
                         ) {
                             selectedPerson = person
@@ -113,7 +127,7 @@ struct PoolView: View {
                         .contentShape(Rectangle())
                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                         .listRowSeparator(.hidden)
-                        .listRowBackground(Color("Background"))
+                        .listRowBackground(Theme.Palette.background)
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
                                 removeFromPool(person)
@@ -130,7 +144,7 @@ struct PoolView: View {
                                     systemImage: person.isPinned ? "pin.slash" : "pin"
                                 )
                             }
-                            .tint(Color("BrandPrimary"))
+                            .tint(Theme.Palette.brand)
                         }
                         .contextMenu {
                             Button {
@@ -167,24 +181,26 @@ struct PoolView: View {
                     }
                 }
 
-                Section {
-                    Button {
-                        handleAddContactTap()
-                    } label: {
-                        Label("Add Contact", systemImage: "plus")
-                            .frame(maxWidth: .infinity)
+                if !viewModel.people.isEmpty {
+                    Section {
+                        Button {
+                            handleAddContactTap()
+                        } label: {
+                            Label("Add Contact", systemImage: "plus")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(SecondaryPillButtonStyle())
+                        .accessibilityHint("Opens the contact picker so you can add people to your pool.")
+                        .padding(.top, 6)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 24, trailing: 16))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Theme.Palette.background)
                     }
-                    .buttonStyle(SecondaryPillButtonStyle())
-                    .accessibilityHint("Opens the contact picker so you can add people to your pool.")
-                    .padding(.top, 6)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 24, trailing: 16))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color("Background"))
                 }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .background(Color("Background").ignoresSafeArea())
+            .background(Theme.Palette.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
         }
         .onAppear {
@@ -226,13 +242,13 @@ struct PoolView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(connectErrorMessage ?? "Something went wrong.")
-                .foregroundStyle(Color("TextSecondary"))
+                .foregroundStyle(Theme.Palette.textSecondary)
         }
         .alert("Can’t Add Contact", isPresented: $showAddContactError) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(addContactErrorMessage ?? "Something went wrong while adding this contact.")
-                .foregroundStyle(Color("TextSecondary"))
+                .foregroundStyle(Theme.Palette.textSecondary)
         }
         .alert("Contacts Access Needed", isPresented: $showContactsPermissionAlert) {
             Button("Open Settings") {
@@ -243,11 +259,24 @@ struct PoolView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("Please allow Contacts access in Settings to add people to your pool.")
-                .foregroundStyle(Color("TextSecondary"))
+                .foregroundStyle(Theme.Palette.textSecondary)
         }
     }
 
     // MARK: - Private Helpers
+
+    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter
+    }()
+
+    private func lastConnectedSubtitle(for person: Person) -> String {
+        if let lastCalledAt = person.lastCalledAt {
+            return "Last connected " + Self.relativeDateFormatter.localizedString(for: lastCalledAt, relativeTo: Date())
+        }
+        return "Tap to connect"
+    }
 
     private func handleAddContactTap() {
         addContactErrorMessage = nil
@@ -388,10 +417,7 @@ struct PoolView: View {
         return true
     }
 
-    private func successHaptic() {
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
-    }
+    private func successHaptic() { Haptics.success() }
 
     // MARK: - Actions
 
@@ -449,6 +475,45 @@ struct PoolView: View {
 }
 
 
+// MARK: - Empty State
+
+/// Shown when the pool has no one in it yet — a warm invitation to add the
+/// first few people rather than a blank list.
+private struct PoolEmptyState: View {
+    let onAdd: () -> Void
+
+    var body: some View {
+        VStack(spacing: Theme.Space.md) {
+            Image(systemName: "person.2.badge.plus")
+                .font(.system(size: 40, weight: .light))
+                .foregroundStyle(Theme.Palette.brand)
+
+            VStack(spacing: 6) {
+                Text("Build your circle")
+                    .font(.headline)
+                    .foregroundStyle(Theme.Palette.textPrimary)
+
+                Text("Add a few people you’d like to keep up with, and we’ll suggest who to reach out to each day.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.Palette.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button(action: onAdd) {
+                Label("Add your first people", systemImage: "plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PrimaryPillButtonStyle())
+            .padding(.top, 4)
+        }
+        .padding(.vertical, Theme.Space.lg)
+        .padding(.horizontal, Theme.Space.md)
+        .frame(maxWidth: .infinity)
+        .cardSurface()
+        .accessibilityElement(children: .combine)
+    }
+}
+
 private struct MultiContactPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -476,23 +541,33 @@ private struct MultiContactPickerSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                if !selectedIdentifiers.isEmpty {
+                    Section {
+                        Text("\(selectedIdentifiers.count) selected")
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(Theme.Palette.brand)
+                            .listRowBackground(Theme.Palette.background)
+                    }
+                }
+
                 ForEach(filteredContacts, id: \.identifier) { contact in
+                    let isSelected = selectedIdentifiers.contains(contact.identifier)
                     Button {
                         toggleSelection(for: contact)
                     } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: selectedIdentifiers.contains(contact.identifier) ? "checkmark.circle.fill" : "circle")
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                                 .font(.title3)
-                                .foregroundStyle(selectedIdentifiers.contains(contact.identifier) ? Color("BrandPrimary") : Color("TextSecondary"))
+                                .foregroundStyle(isSelected ? Theme.Palette.brand : Theme.Palette.textSecondary)
 
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(displayName(for: contact))
-                                    .foregroundStyle(Color("TextPrimary"))
+                                    .foregroundStyle(Theme.Palette.textPrimary)
 
                                 if let phone = contact.phoneNumbers.first?.value.stringValue, !phone.isEmpty {
                                     Text(phone)
                                         .font(.footnote)
-                                        .foregroundStyle(Color("TextSecondary"))
+                                        .foregroundStyle(Theme.Palette.textSecondary)
                                 }
                             }
 
@@ -501,11 +576,11 @@ private struct MultiContactPickerSheet: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .listRowBackground(Color("Card"))
+                    .listRowBackground(isSelected ? Theme.Palette.brand.opacity(0.12) : Theme.Palette.card)
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Color("Background").ignoresSafeArea())
+            .background(Theme.Palette.background.ignoresSafeArea())
             .searchable(text: $searchText, prompt: "Search contacts")
             .navigationTitle("Select Contacts")
             .navigationBarTitleDisplayMode(.inline)
