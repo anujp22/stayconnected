@@ -232,8 +232,8 @@ struct PoolView: View {
             Button("Cancel", role: .cancel) { }
         }
         .sheet(isPresented: $showContactPicker) {
-            MultiContactPickerSheet { contacts, cadence in
-                addContactsToPool(contacts, cadence: cadence)
+            MultiContactPickerSheet { selections in
+                addContactsToPool(selections)
             }
         }
         .alert("Can’t Connect", isPresented: $showConnectError) {
@@ -306,17 +306,18 @@ struct PoolView: View {
         }
     }
 
-    private func addContactsToPool(_ contacts: [CNContact], cadence: ContactCadence = .regular) {
-        guard !contacts.isEmpty else {
+    private func addContactsToPool(_ selections: [ContactImport]) {
+        guard !selections.isEmpty else {
             showContactPicker = false
             return
         }
 
         do {
-            for contact in contacts {
+            for selection in selections {
+                let identifier = selection.contact.id
                 let request: NSFetchRequest<Person> = Person.fetchRequest()
                 request.fetchLimit = 1
-                request.predicate = NSPredicate(format: "contactIdentifier == %@", contact.identifier)
+                request.predicate = NSPredicate(format: "contactIdentifier == %@", identifier)
 
                 let existingPerson = try ctx.fetch(request).first
                 let person = existingPerson ?? Person(context: ctx)
@@ -325,20 +326,15 @@ struct PoolView: View {
                     person.id = UUID()
                 }
 
-                let fullName = CNContactFormatter.string(from: contact, style: .fullName)
-                    ?? [contact.givenName, contact.familyName]
-                        .filter { !$0.isEmpty }
-                        .joined(separator: " ")
-
-                person.contactIdentifier = contact.identifier
-                person.displayName = fullName.isEmpty ? "Unknown Contact" : fullName
+                person.contactIdentifier = identifier
+                person.displayName = selection.contact.name
                 person.isInPool = true
 
-                // Only stamp cadence/pin defaults on brand-new people, so
-                // re-adding someone never resets a cadence they already tuned.
+                // Only stamp cadence/pin on brand-new people, so re-adding
+                // someone never resets a cadence they've already tuned in the pool.
                 if existingPerson == nil {
                     person.isPinned = false
-                    person.contactCadence = cadence
+                    person.contactCadence = selection.cadence
                 }
             }
 
@@ -526,15 +522,24 @@ private struct PickableContact: Identifiable {
     let searchKey: String
 }
 
+/// One person on their way into the pool, paired with the cadence the user
+/// assigns during the review step.
+private struct ContactImport: Identifiable {
+    let contact: PickableContact
+    var cadence: ContactCadence
+    var id: String { contact.id }
+}
+
 private struct MultiContactPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
-    let onAdd: ([CNContact], ContactCadence) -> Void
+    let onAdd: ([ContactImport]) -> Void
 
     @State private var contacts: [PickableContact] = []
     @State private var selectedIdentifiers: Set<String> = []
     @State private var searchText = ""
-    @State private var selectedCadence: ContactCadence = .regular
+    @State private var pendingReview: [ContactImport] = []
+    @State private var isReviewing = false
 
     private var filteredContacts: [PickableContact] {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -545,26 +550,6 @@ private struct MultiContactPickerSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("How often to stay in touch")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Theme.Palette.textPrimary)
-
-                        Picker("Cadence", selection: $selectedCadence) {
-                            ForEach(ContactCadence.allCases) { cadence in
-                                Text(cadence.label).tag(cadence)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-
-                        Text("Applies to everyone you add now — \(selectedCadence.subtitle.lowercased()). You can fine-tune anyone later.")
-                            .font(.caption)
-                            .foregroundStyle(Theme.Palette.textSecondary)
-                    }
-                    .listRowBackground(Theme.Palette.background)
-                }
-
                 Section {
                     HStack {
                         Text(selectedIdentifiers.isEmpty ? "None selected" : "\(selectedIdentifiers.count) selected")
@@ -625,14 +610,19 @@ private struct MultiContactPickerSheet: View {
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(selectedIdentifiers.isEmpty ? "Add" : "Add (\(selectedIdentifiers.count))") {
-                        let selectedContacts = contacts
+                    Button(selectedIdentifiers.isEmpty ? "Next" : "Next (\(selectedIdentifiers.count))") {
+                        pendingReview = contacts
                             .filter { selectedIdentifiers.contains($0.id) }
-                            .map(\.contact)
-                        onAdd(selectedContacts, selectedCadence)
-                        dismiss()
+                            .map { ContactImport(contact: $0, cadence: .regular) }
+                        isReviewing = true
                     }
                     .disabled(selectedIdentifiers.isEmpty)
+                }
+            }
+            .navigationDestination(isPresented: $isReviewing) {
+                ImportReviewView(initialSelections: pendingReview) { finalized in
+                    onAdd(finalized)
+                    dismiss()
                 }
             }
             .task {
@@ -710,6 +700,98 @@ private struct MultiContactPickerSheet: View {
 
             return result
         }.value
+    }
+}
+
+// MARK: - Import Review
+
+/// The guided triage step: after picking people, the user sets a rhythm for
+/// each one (with a "set all" shortcut) before they land in the pool — so
+/// importing a batch is a quick sorting pass, not a chore of long-pressing each
+/// row afterwards.
+private struct ImportReviewView: View {
+    let initialSelections: [ContactImport]
+    let onCommit: ([ContactImport]) -> Void
+
+    @State private var selections: [ContactImport] = []
+
+    var body: some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("How often would you like to keep in touch with each person? Set them all at once, then fine-tune anyone.")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+
+                    HStack(spacing: 8) {
+                        Text("Set all")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Theme.Palette.textPrimary)
+
+                        Spacer()
+
+                        ForEach(ContactCadence.allCases) { cadence in
+                            Button(cadence.label) { setAll(cadence) }
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Capsule().fill(Theme.Palette.brand.opacity(0.12)))
+                                .foregroundStyle(Theme.Palette.brand)
+                                .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .listRowBackground(Theme.Palette.background)
+            }
+
+            Section {
+                ForEach($selections) { $selection in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(selection.contact.name)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Theme.Palette.textPrimary)
+
+                        Picker("Cadence", selection: $selection.cadence) {
+                            ForEach(ContactCadence.allCases) { cadence in
+                                Text(cadence.label).tag(cadence)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    .padding(.vertical, 4)
+                    .listRowBackground(Theme.Palette.card)
+                }
+            } header: {
+                Text("\(selections.count) \(selections.count == 1 ? "person" : "people")")
+                    .foregroundStyle(Theme.Palette.textSecondary)
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(Theme.Palette.background.ignoresSafeArea())
+        .navigationTitle("Set a Rhythm")
+        .navigationBarTitleDisplayMode(.inline)
+        .safeAreaInset(edge: .bottom) {
+            Button {
+                onCommit(selections)
+            } label: {
+                Text(selections.count == 1 ? "Add to Pool" : "Add \(selections.count) to Pool")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PrimaryPillButtonStyle())
+            .padding()
+            .background(.ultraThinMaterial)
+        }
+        .onAppear {
+            if selections.isEmpty {
+                selections = initialSelections
+            }
+        }
+    }
+
+    private func setAll(_ cadence: ContactCadence) {
+        for index in selections.indices {
+            selections[index].cadence = cadence
+        }
     }
 }
 
