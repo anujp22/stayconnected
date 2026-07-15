@@ -320,6 +320,7 @@ struct HomeView: View {
                     .padding(.top, 8)
             }
             .padding()
+            .padding(.bottom, Theme.Layout.tabBarClearance)
             .background(Theme.Palette.background.ignoresSafeArea())
             .onAppear {
                 loadOrAutoGenerate()

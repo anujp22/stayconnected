@@ -24,10 +24,10 @@ struct StreakFlame: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(
-                Capsule().fill(Theme.Palette.sand.opacity(0.5))
+                Capsule().fill(Theme.Palette.accentWarm.opacity(0.16))
             )
             .overlay(
-                Capsule().stroke(Theme.Palette.accentWarm.opacity(0.3), lineWidth: 1)
+                Capsule().stroke(Theme.Palette.accentWarm.opacity(0.35), lineWidth: 1)
             )
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(streak) day streak")

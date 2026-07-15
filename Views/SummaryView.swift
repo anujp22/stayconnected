@@ -234,6 +234,7 @@ struct SummaryView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding()
+                .padding(.bottom, Theme.Layout.tabBarClearance)
             }
             .background(Theme.Palette.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)

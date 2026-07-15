@@ -30,11 +30,8 @@ struct PoolView: View {
 
     // MARK: - Initialization
 
-    init() {
-        // Placeholder: real context comes from environment onAppear
-        _viewModel = StateObject(
-            wrappedValue: PoolViewModel(ctx: PersistenceController.shared.container.viewContext)
-        )
+    init(context: NSManagedObjectContext) {
+        _viewModel = StateObject(wrappedValue: PoolViewModel(ctx: context))
     }
 
     // MARK: - View
@@ -200,6 +197,7 @@ struct PoolView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .contentMargins(.bottom, Theme.Layout.tabBarClearance, for: .scrollContent)
             .background(Theme.Palette.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -234,8 +232,8 @@ struct PoolView: View {
             Button("Cancel", role: .cancel) { }
         }
         .sheet(isPresented: $showContactPicker) {
-            MultiContactPickerSheet { contacts in
-                addContactsToPool(contacts)
+            MultiContactPickerSheet { contacts, cadence in
+                addContactsToPool(contacts, cadence: cadence)
             }
         }
         .alert("Can’t Connect", isPresented: $showConnectError) {
@@ -308,7 +306,7 @@ struct PoolView: View {
         }
     }
 
-    private func addContactsToPool(_ contacts: [CNContact]) {
+    private func addContactsToPool(_ contacts: [CNContact], cadence: ContactCadence = .regular) {
         guard !contacts.isEmpty else {
             showContactPicker = false
             return
@@ -336,8 +334,11 @@ struct PoolView: View {
                 person.displayName = fullName.isEmpty ? "Unknown Contact" : fullName
                 person.isInPool = true
 
+                // Only stamp cadence/pin defaults on brand-new people, so
+                // re-adding someone never resets a cadence they already tuned.
                 if existingPerson == nil {
                     person.isPinned = false
+                    person.contactCadence = cadence
                 }
             }
 
@@ -367,10 +368,6 @@ struct PoolView: View {
         }
     }
 
-    private func addContactToPool(_ contact: CNContact) {
-        addContactsToPool([contact])
-    }
-
     private func resolvePhoneAndPresent(for person: Person) {
         resolvedPhone = nil
 
@@ -380,20 +377,23 @@ struct PoolView: View {
             return
         }
 
-        do {
+        // Resolve the number off the main thread, then present. The connect
+        // dialog already handles a nil/empty number ("No number available").
+        Task {
+            resolvedPhone = await Self.resolvePhoneNumber(for: contactId)
+            showConnectSheet = true
+        }
+    }
+
+    private static func resolvePhoneNumber(for identifier: String) async -> String? {
+        await Task.detached(priority: .userInitiated) {
             let store = CNContactStore()
             let keys: [CNKeyDescriptor] = [CNContactPhoneNumbersKey as CNKeyDescriptor]
-            let contact = try store.unifiedContact(withIdentifier: contactId, keysToFetch: keys)
-
-            // Pick the first phone number (you can improve this later)
-            let phone = contact.phoneNumbers.first?.value.stringValue
-            resolvedPhone = phone
-            showConnectSheet = true
-        } catch {
-            resolvedPhone = nil
-            connectErrorMessage = "Couldn’t load this contact’s phone number."
-            showConnectError = true
-        }
+            guard let contact = try? store.unifiedContact(withIdentifier: identifier, keysToFetch: keys) else {
+                return nil
+            }
+            return contact.phoneNumbers.first?.value.stringValue
+        }.value
     }
 
     /// Opens the link and, on success, logs the check-in for the selected
@@ -514,46 +514,79 @@ private struct PoolEmptyState: View {
     }
 }
 
+/// A contact flattened for the picker: name, first phone, and a lowercased
+/// search key are all computed *once* when the address book loads, so filtering
+/// while the user types is a cheap string scan rather than re-running
+/// `CNContactFormatter` across hundreds of contacts on every keystroke.
+private struct PickableContact: Identifiable {
+    let id: String
+    let contact: CNContact
+    let name: String
+    let phone: String?
+    let searchKey: String
+}
+
 private struct MultiContactPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
-    let onAdd: ([CNContact]) -> Void
+    let onAdd: ([CNContact], ContactCadence) -> Void
 
-    @State private var contacts: [CNContact] = []
+    @State private var contacts: [PickableContact] = []
     @State private var selectedIdentifiers: Set<String> = []
     @State private var searchText = ""
+    @State private var selectedCadence: ContactCadence = .regular
 
-    private var filteredContacts: [CNContact] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    private var filteredContacts: [PickableContact] {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !trimmed.isEmpty else { return contacts }
-
-        return contacts.filter { contact in
-            let fullName = CNContactFormatter.string(from: contact, style: .fullName)
-                ?? [contact.givenName, contact.familyName]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: " ")
-
-            return fullName.localizedCaseInsensitiveContains(trimmed)
-                || contact.phoneNumbers.contains { $0.value.stringValue.localizedCaseInsensitiveContains(trimmed) }
-        }
+        return contacts.filter { $0.searchKey.contains(trimmed) }
     }
 
     var body: some View {
         NavigationStack {
             List {
-                if !selectedIdentifiers.isEmpty {
-                    Section {
-                        Text("\(selectedIdentifiers.count) selected")
-                            .font(.footnote.weight(.medium))
-                            .foregroundStyle(Theme.Palette.brand)
-                            .listRowBackground(Theme.Palette.background)
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("How often to stay in touch")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Theme.Palette.textPrimary)
+
+                        Picker("Cadence", selection: $selectedCadence) {
+                            ForEach(ContactCadence.allCases) { cadence in
+                                Text(cadence.label).tag(cadence)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        Text("Applies to everyone you add now — \(selectedCadence.subtitle.lowercased()). You can fine-tune anyone later.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.Palette.textSecondary)
                     }
+                    .listRowBackground(Theme.Palette.background)
                 }
 
-                ForEach(filteredContacts, id: \.identifier) { contact in
-                    let isSelected = selectedIdentifiers.contains(contact.identifier)
+                Section {
+                    HStack {
+                        Text(selectedIdentifiers.isEmpty ? "None selected" : "\(selectedIdentifiers.count) selected")
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(selectedIdentifiers.isEmpty ? Theme.Palette.textSecondary : Theme.Palette.brand)
+
+                        Spacer()
+
+                        Button(allShownSelected ? "Deselect All" : "Select All") {
+                            toggleSelectAll()
+                        }
+                        .font(.footnote.weight(.semibold))
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Theme.Palette.brand)
+                    }
+                    .listRowBackground(Theme.Palette.background)
+                }
+
+                ForEach(filteredContacts) { item in
+                    let isSelected = selectedIdentifiers.contains(item.id)
                     Button {
-                        toggleSelection(for: contact)
+                        toggleSelection(for: item.id)
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
@@ -561,10 +594,10 @@ private struct MultiContactPickerSheet: View {
                                 .foregroundStyle(isSelected ? Theme.Palette.brand : Theme.Palette.textSecondary)
 
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(displayName(for: contact))
+                                Text(item.name)
                                     .foregroundStyle(Theme.Palette.textPrimary)
 
-                                if let phone = contact.phoneNumbers.first?.value.stringValue, !phone.isEmpty {
+                                if let phone = item.phone, !phone.isEmpty {
                                     Text(phone)
                                         .font(.footnote)
                                         .foregroundStyle(Theme.Palette.textSecondary)
@@ -593,56 +626,90 @@ private struct MultiContactPickerSheet: View {
 
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(selectedIdentifiers.isEmpty ? "Add" : "Add (\(selectedIdentifiers.count))") {
-                        let selectedContacts = contacts.filter { selectedIdentifiers.contains($0.identifier) }
-                        onAdd(selectedContacts)
+                        let selectedContacts = contacts
+                            .filter { selectedIdentifiers.contains($0.id) }
+                            .map(\.contact)
+                        onAdd(selectedContacts, selectedCadence)
                         dismiss()
                     }
                     .disabled(selectedIdentifiers.isEmpty)
                 }
             }
             .task {
-                loadContacts()
+                await loadContacts()
             }
         }
     }
 
-    private func toggleSelection(for contact: CNContact) {
-        if selectedIdentifiers.contains(contact.identifier) {
-            selectedIdentifiers.remove(contact.identifier)
+    private func toggleSelection(for id: String) {
+        if selectedIdentifiers.contains(id) {
+            selectedIdentifiers.remove(id)
         } else {
-            selectedIdentifiers.insert(contact.identifier)
+            selectedIdentifiers.insert(id)
         }
     }
 
-    private func displayName(for contact: CNContact) -> String {
-        let fullName = CNContactFormatter.string(from: contact, style: .fullName)
-            ?? [contact.givenName, contact.familyName]
-                .filter { !$0.isEmpty }
-                .joined(separator: " ")
-
-        return fullName.isEmpty ? "Unknown Contact" : fullName
+    /// Whether every contact currently visible (respecting the search filter) is
+    /// already selected — drives the Select All / Deselect All toggle.
+    private var allShownSelected: Bool {
+        let shown = filteredContacts.map(\.id)
+        return !shown.isEmpty && shown.allSatisfy { selectedIdentifiers.contains($0) }
     }
 
-    private func loadContacts() {
-        let store = CNContactStore()
-        let keys: [CNKeyDescriptor] = [
-            CNContactFormatter.descriptorForRequiredKeys(for: .fullName),
-            CNContactPhoneNumbersKey as CNKeyDescriptor
-        ]
+    private func toggleSelectAll() {
+        let shown = filteredContacts.map(\.id)
+        if allShownSelected {
+            shown.forEach { selectedIdentifiers.remove($0) }
+        } else {
+            selectedIdentifiers.formUnion(shown)
+        }
+    }
 
-        var fetchedContacts: [CNContact] = []
-        let request = CNContactFetchRequest(keysToFetch: keys)
-        request.sortOrder = .userDefault
+    /// Loads the full address book. The enumeration and per-contact formatting
+    /// run on a detached background task — with a large address book (hundreds
+    /// of contacts) doing this on the main actor freezes the sheet as it opens.
+    private func loadContacts() async {
+        contacts = await Self.fetchAllContacts()
+    }
 
-        do {
-            try store.enumerateContacts(with: request) { contact, _ in
-                fetchedContacts.append(contact)
+    private static func fetchAllContacts() async -> [PickableContact] {
+        await Task.detached(priority: .userInitiated) {
+            let store = CNContactStore()
+            let keys: [CNKeyDescriptor] = [
+                CNContactFormatter.descriptorForRequiredKeys(for: .fullName),
+                CNContactPhoneNumbersKey as CNKeyDescriptor
+            ]
+
+            var result: [PickableContact] = []
+            let request = CNContactFetchRequest(keysToFetch: keys)
+            request.sortOrder = .userDefault
+
+            do {
+                try store.enumerateContacts(with: request) { contact, _ in
+                    let fullName = CNContactFormatter.string(from: contact, style: .fullName)
+                        ?? [contact.givenName, contact.familyName]
+                            .filter { !$0.isEmpty }
+                            .joined(separator: " ")
+                    let name = fullName.isEmpty ? "Unknown Contact" : fullName
+                    let phone = contact.phoneNumbers.first?.value.stringValue
+                    let searchKey = (name + " " + (phone ?? "")).lowercased()
+
+                    result.append(
+                        PickableContact(
+                            id: contact.identifier,
+                            contact: contact,
+                            name: name,
+                            phone: phone,
+                            searchKey: searchKey
+                        )
+                    )
+                }
+            } catch {
+                return []
             }
 
-            contacts = fetchedContacts
-        } catch {
-            contacts = []
-        }
+            return result
+        }.value
     }
 }
 

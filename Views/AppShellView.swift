@@ -57,7 +57,7 @@ struct AppShellView: View {
                 .tag(AppTab.home)
                 .toolbar(.hidden, for: .tabBar)
 
-            PoolView()
+            PoolView(context: ctx)
                 .tag(AppTab.pool)
                 .toolbar(.hidden, for: .tabBar)
 
@@ -69,7 +69,7 @@ struct AppShellView: View {
                 .tag(AppTab.settings)
                 .toolbar(.hidden, for: .tabBar)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        .overlay(alignment: .bottom) {
             FloatingTabBar(selectedTab: $selectedTab)
         }
         .fullScreenCover(isPresented: onboardingBinding) {
