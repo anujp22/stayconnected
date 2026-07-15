@@ -31,13 +31,13 @@ struct SecondaryPillButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color(.secondarySystemBackground))
+                    .fill(Theme.Palette.card)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.accentColor.opacity(0.25), lineWidth: 1)
+                    .stroke(Theme.Palette.brand.opacity(0.3), lineWidth: 1)
             )
-            .foregroundStyle(Color.primary)
+            .foregroundStyle(Theme.Palette.textPrimary)
             .opacity(configuration.isPressed ? 0.88 : 1.0)
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)

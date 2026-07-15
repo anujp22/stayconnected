@@ -32,6 +32,16 @@ enum Theme {
         static let xl: CGFloat = 32
     }
 
+    // MARK: - Layout
+
+    enum Layout {
+        /// Bottom padding each screen must reserve so its content clears the
+        /// floating tab bar (which is drawn as an overlay, not a reserved
+        /// safe-area inset). Anything pinned to the bottom of a screen should
+        /// use this as its bottom inset.
+        static let tabBarClearance: CGFloat = 92
+    }
+
     // MARK: - Palette
 
     /// Typed accessors for the asset-catalog colors. Prefer these over

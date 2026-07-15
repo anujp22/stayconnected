@@ -31,7 +31,7 @@ struct ContactRowCard: View {
                         if isPinned {
                             Image(systemName: "star.fill")
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(Theme.Palette.sand.opacity(0.9))
+                                .foregroundStyle(Theme.Palette.accentWarm)
                         }
 
                         if let cadenceLabel {
