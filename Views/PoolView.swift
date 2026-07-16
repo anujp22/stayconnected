@@ -116,7 +116,8 @@ struct PoolView: View {
                             phone: (nil as String?),
                             isPinned: person.isPinned,
                             contactIdentifier: person.contactIdentifier ?? "",
-                            cadenceLabel: person.contactCadence.label
+                            cadenceLabel: person.contactCadence.label,
+                            birthdayLabel: upcomingBirthdayLabel(for: person)
                         ) {
                             selectedPerson = person
                             resolvePhoneAndPresent(for: person)
@@ -200,6 +201,27 @@ struct PoolView: View {
             .contentMargins(.bottom, Theme.Layout.tabBarClearance, for: .scrollContent)
             .background(Theme.Palette.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Menu {
+                            ForEach(ContactCadence.allCases) { cadence in
+                                Button {
+                                    setCadenceForAllShown(cadence)
+                                } label: {
+                                    Text("\(cadence.label) — \(cadence.subtitle)")
+                                }
+                            }
+                        } label: {
+                            Label("Set rhythm for all shown", systemImage: "calendar")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .disabled(viewModel.filteredPeople.isEmpty)
+                    .accessibilityLabel("Pool options")
+                }
+            }
         }
         .onAppear {
             viewModel.load()
@@ -276,6 +298,13 @@ struct PoolView: View {
         return "Tap to connect"
     }
 
+    /// A birthday chip label for the row, but only within the next week so the
+    /// list stays calm and the 🎂 reads as a timely nudge.
+    private func upcomingBirthdayLabel(for person: Person) -> String? {
+        guard let days = person.daysUntilBirthday(), days <= 7 else { return nil }
+        return person.birthdayShortLabel()
+    }
+
     private func handleAddContactTap() {
         addContactErrorMessage = nil
         showAddContactError = false
@@ -336,6 +365,13 @@ struct PoolView: View {
                     person.isPinned = false
                     person.contactCadence = selection.cadence
                 }
+
+                // Backfill the birthday from Contacts without clobbering one the
+                // user may have set by hand.
+                if person.birthday == nil,
+                   let bday = Self.birthdayDate(from: selection.contact.birthday) {
+                    person.birthday = bday
+                }
             }
 
             if ctx.hasChanges {
@@ -350,6 +386,9 @@ struct PoolView: View {
             DispatchQueue.main.async {
                 viewModel.load()
             }
+
+            // Newly imported people may bring birthdays with them.
+            Task { try? await NotificationsService.syncBirthdayReminders(in: ctx) }
 
             successHaptic()
         } catch {
@@ -413,6 +452,21 @@ struct PoolView: View {
         return true
     }
 
+    /// Builds a storable `Date` from a Contacts birthday. The address book often
+    /// omits the year, so we substitute a neutral placeholder — everything that
+    /// uses `birthday` compares on month/day only.
+    private static func birthdayDate(from components: DateComponents?) -> Date? {
+        guard let components, let month = components.month, let day = components.day else {
+            return nil
+        }
+        var comps = DateComponents()
+        comps.year = components.year ?? 2000
+        comps.month = month
+        comps.day = day
+        comps.hour = 12
+        return Calendar.current.date(from: comps)
+    }
+
     private func successHaptic() { Haptics.success() }
 
     // MARK: - Actions
@@ -421,6 +475,23 @@ struct PoolView: View {
         person.contactCadence = cadence
         do {
             try ctx.save()
+            viewModel.load()
+            successHaptic()
+        } catch {
+            connectErrorMessage = "Couldn’t update how often to connect."
+            showConnectError = true
+        }
+    }
+
+    /// Bulk-sets the rhythm for everyone currently shown (respecting the search
+    /// filter). This is the low-friction path: set the whole pool at once, then
+    /// fine-tune the few exceptions via a row's swipe/long-press.
+    private func setCadenceForAllShown(_ cadence: ContactCadence) {
+        for person in viewModel.filteredPeople {
+            person.contactCadence = cadence
+        }
+        do {
+            if ctx.hasChanges { try ctx.save() }
             viewModel.load()
             successHaptic()
         } catch {
@@ -520,6 +591,8 @@ private struct PickableContact: Identifiable {
     let name: String
     let phone: String?
     let searchKey: String
+    /// The contact's birthday from the address book, if set (may omit a year).
+    let birthday: DateComponents?
 }
 
 /// One person on their way into the pool, paired with the cadence the user
@@ -667,7 +740,8 @@ private struct MultiContactPickerSheet: View {
             let store = CNContactStore()
             let keys: [CNKeyDescriptor] = [
                 CNContactFormatter.descriptorForRequiredKeys(for: .fullName),
-                CNContactPhoneNumbersKey as CNKeyDescriptor
+                CNContactPhoneNumbersKey as CNKeyDescriptor,
+                CNContactBirthdayKey as CNKeyDescriptor
             ]
 
             var result: [PickableContact] = []
@@ -690,7 +764,8 @@ private struct MultiContactPickerSheet: View {
                             contact: contact,
                             name: name,
                             phone: phone,
-                            searchKey: searchKey
+                            searchKey: searchKey,
+                            birthday: contact.birthday
                         )
                     )
                 }

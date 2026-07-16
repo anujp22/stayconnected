@@ -9,6 +9,9 @@ struct ContactRowCard: View {
     let isPinned: Bool
     var contactIdentifier: String = ""
     var cadenceLabel: String? = nil
+    /// A short birthday hint (e.g. "Today", "in 3 days") shown as a warm 🎂 chip
+    /// when set. Only passed for upcoming birthdays so rows stay calm.
+    var birthdayLabel: String? = nil
 
     var onTap: () -> Void = {}
 
@@ -39,9 +42,20 @@ struct ContactRowCard: View {
                         }
                     }
 
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.Palette.textSecondary)
+                    HStack(spacing: 6) {
+                        Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.Palette.textSecondary)
+
+                        if let birthdayLabel {
+                            Label(birthdayLabel, systemImage: "birthday.cake.fill")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(Theme.Palette.accentWarm)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Capsule().fill(Theme.Palette.accentWarm.opacity(0.14)))
+                        }
+                    }
 
                     if let phone, !phone.isEmpty {
                         Text(phone)

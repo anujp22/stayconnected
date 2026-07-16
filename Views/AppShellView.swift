@@ -45,6 +45,7 @@ enum AppTab: Hashable, CaseIterable {
 struct AppShellView: View {
     // MARK: - Environment
     @Environment(\.managedObjectContext) private var ctx
+    @Environment(\.scenePhase) private var scenePhase
 
     // MARK: - State
     @State private var selectedTab: AppTab = .home
@@ -83,6 +84,20 @@ struct AppShellView: View {
                 }
             )
         }
+        // Re-sync reminders on every launch and foreground so their copy stays
+        // correct even if the user never taps anything in the app (this is what
+        // heals a previously scheduled stale "already connected" reminder, and
+        // keeps birthday reminders current as the pool changes).
+        .task { await syncReminders() }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await syncReminders() }
+        }
+    }
+
+    private func syncReminders() async {
+        try? await NotificationsService.syncReminderIfNeeded(in: ctx)
+        try? await NotificationsService.syncBirthdayReminders(in: ctx)
     }
 
     private var onboardingBinding: Binding<Bool> {
@@ -106,6 +121,12 @@ private struct OnboardingView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    Image("OnboardingHero")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity)
+                        .accessibilityHidden(true)
+
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Welcome to StayConnected")
                             .font(.system(.largeTitle, design: .serif).weight(.bold))
@@ -177,17 +198,13 @@ private struct OnboardingView: View {
                     Button("Add Contacts") {
                         onStartSetup()
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(PrimaryPillButtonStyle())
                     .accessibilityHint("Takes you to your contact pool to start setup.")
 
                     Button("Explore First") {
                         onSkip()
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(SecondaryPillButtonStyle())
                     .accessibilityHint("Closes onboarding and keeps the app on the home tab.")
                 }
                 .padding()

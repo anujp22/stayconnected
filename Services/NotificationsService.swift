@@ -35,7 +35,7 @@ enum NotificationsService {
     static func scheduleDailyReminder(
         at time: Date,
         title: String = "Today’s picks are ready",
-        body: String = "Open StayConnected to see who to call today."
+        body: String = "Open StayConnected to see who to reach out to today."
     ) async throws {
         let center = UNUserNotificationCenter.current()
 
@@ -197,12 +197,16 @@ enum NotificationsService {
         let reminderTime = settings.reminderTime
             ?? Calendar.current.date(bySettingHour: 10, minute: 0, second: 0, of: now)
             ?? now
-        let preview = try reminderPreview(in: ctx, now: now)
-        try await scheduleDailyReminder(
-            at: reminderTime,
-            title: preview.title,
-            body: preview.body
-        )
+
+        // The daily reminder REPEATS every day at `reminderTime`, and a
+        // repeating notification's body is frozen at scheduling time. So it
+        // must use day-agnostic, forward-looking copy — never anything derived
+        // from *today's* completion/streak state. (Baking in "you've already
+        // connected, come back tomorrow" here made that stale copy fire on
+        // every following day, before the user had done anything.) Stateful,
+        // adaptive nudges are delivered only through the one-shot catch-up
+        // reminder below, which is scoped to today.
+        try await scheduleDailyReminder(at: reminderTime)
 
         await cancelCatchUpReminder()
 
@@ -212,10 +216,74 @@ enum NotificationsService {
         }
 
         if let catchUpTime = catchUpReminderDate(reminderTime: reminderTime, now: now) {
+            let preview = try reminderPreview(in: ctx, now: now)
             try await scheduleCatchUpReminder(
                 at: catchUpTime,
                 title: preview.title,
                 body: preview.body
+            )
+        }
+    }
+
+    // MARK: - Birthday Reminders
+
+    private static let birthdayIdentifierPrefix = "birthday."
+
+    /// Reschedules a gentle "morning of" birthday reminder for each pool member
+    /// who has a birthday. These are repeating annual notifications (matched on
+    /// month/day at 9am), so they need refreshing whenever birthdays change or
+    /// the pool does. Gated on the same reminders toggle as the daily nudge.
+    static func syncBirthdayReminders(
+        in ctx: NSManagedObjectContext,
+        now: Date = Date()
+    ) async throws {
+        let center = UNUserNotificationCenter.current()
+
+        // Always clear existing birthday reminders first so removed/edited
+        // birthdays don't linger.
+        let pending = await center.pendingNotificationRequests()
+        let staleIDs = pending.map(\.identifier).filter { $0.hasPrefix(birthdayIdentifierPrefix) }
+        if !staleIDs.isEmpty {
+            center.removePendingNotificationRequests(withIdentifiers: staleIDs)
+        }
+
+        let settings = try AppSettings.effective(in: ctx)
+        guard settings.remindersEnabled else { return }
+
+        let request: NSFetchRequest<Person> = Person.fetchRequest()
+        request.predicate = NSPredicate(format: "isInPool == YES AND birthday != nil")
+        let people = try ctx.fetch(request)
+
+        // Soonest birthdays first, capped so birthday + daily + catch-up
+        // reminders stay comfortably under the iOS 64-pending limit.
+        let upcoming = people
+            .compactMap { person -> (Person, Int)? in
+                guard let days = person.daysUntilBirthday(from: now) else { return nil }
+                return (person, days)
+            }
+            .sorted { $0.1 < $1.1 }
+            .prefix(32)
+
+        for (person, _) in upcoming {
+            guard let md = person.birthdayMonthDay else { continue }
+            let name = person.displayName ?? "someone"
+            let identifier = birthdayIdentifierPrefix
+                + (person.contactIdentifier ?? person.id?.uuidString ?? UUID().uuidString)
+
+            let content = UNMutableNotificationContent()
+            content.title = "Birthday today 🎂"
+            content.body = "It’s \(name)’s birthday — a lovely reason to reach out."
+            content.sound = .default
+
+            var comps = DateComponents()
+            comps.month = md.month
+            comps.day = md.day
+            comps.hour = 9
+            comps.minute = 0
+
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+            try await center.add(
+                UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
             )
         }
     }
