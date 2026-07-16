@@ -6,9 +6,6 @@ struct SummaryView: View {
     @Environment(\.managedObjectContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     // MARK: - State
-    @State private var poolCount = 0
-    @State private var calledThisMonth = 0
-    @State private var calledPeople: [Person] = []
     @State private var neverContactedPeople: [Person] = []
     @State private var recentEvents: [ConnectionEvent] = []
     @State private var peopleByIdentifier: [String: Person] = [:]
@@ -52,73 +49,10 @@ struct SummaryView: View {
                         ActivityHeatmap(counts: dailyCounts)
                     }
 
-                    // MARK: Top Stats
-                    VStack(spacing: 16) {
-                        StatCard(
-                            title: "People in Pool",
-                            value: "\(poolCount)",
-                            color: Theme.Palette.brand
-                        )
-
-                        StatCard(
-                            title: "Connected This Month",
-                            value: "\(calledThisMonth)",
-                            color: Theme.Palette.success
-                        )
-
-                        StatCard(
-                            title: "Not Yet Reached",
-                            value: "\(neverContactedPeople.count)",
-                            color: Theme.Palette.brand
-                        )
-                    }
-                    .padding(.top, 20)
-
-                    // MARK: Connected This Month
-                    SummarySectionCard(title: "Connected This Month") {
-                        if calledPeople.isEmpty {
-                            Text("No one marked as connected yet this month.")
-                                .font(.subheadline)
-                                .foregroundStyle(Theme.Palette.textSecondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        } else {
-                            VStack(spacing: 0) {
-                                ForEach(calledPeople, id: \.objectID) { person in
-                                    Button {
-                                        selectedPerson = person
-                                    } label: {
-                                        HStack {
-                                            Text(person.displayName ?? "Unknown")
-                                                .font(.subheadline)
-                                                .foregroundStyle(Theme.Palette.textPrimary)
-                                            Spacer()
-                                            if let lastCalled = person.lastCalledAt {
-                                                Text(lastCalled, format: .dateTime.month().day())
-                                                    .font(.caption)
-                                                    .foregroundStyle(Theme.Palette.textSecondary)
-                                            }
-                                            Image(systemName: "chevron.right")
-                                                .font(.caption)
-                                                .foregroundStyle(Theme.Palette.textSecondary.opacity(0.7))
-                                        }
-                                        .padding(.vertical, 10)
-                                        .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-
-                                    if person.objectID != calledPeople.last?.objectID {
-                                        Divider()
-                                            .overlay(Theme.Palette.divider)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // MARK: Never Contacted Yet
-                    SummarySectionCard(title: "Never Contacted Yet") {
+                    // MARK: Ready to Connect
+                    SummarySectionCard(title: "Ready to connect") {
                         if neverContactedPeople.isEmpty {
-                            Text("Everyone in your pool has been contacted at least once.")
+                            Text("You’ve reached everyone in your pool at least once — nice.")
                                 .font(.subheadline)
                                 .foregroundStyle(Theme.Palette.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -133,9 +67,6 @@ struct SummaryView: View {
                                                 .font(.subheadline)
                                                 .foregroundStyle(Theme.Palette.textPrimary)
                                             Spacer()
-                                            Text("Never")
-                                                .font(.caption)
-                                                .foregroundStyle(Theme.Palette.textSecondary)
                                             Image(systemName: "chevron.right")
                                                 .font(.caption)
                                                 .foregroundStyle(Theme.Palette.textSecondary.opacity(0.7))
@@ -220,18 +151,6 @@ struct SummaryView: View {
                             }
                         }
                     }
-
-                    // MARK: Section Description
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("How this works")
-                            .font(.headline)
-                            .foregroundStyle(Theme.Palette.textPrimary)
-
-                        Text("This summary shows your streak progress, how many people are currently in your connection pool, who you have marked as called this month, who still has never been contacted, and your most recent connection activity.")
-                            .font(.subheadline)
-                            .foregroundStyle(Theme.Palette.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding()
                 .padding(.bottom, Theme.Layout.tabBarClearance)
@@ -262,9 +181,6 @@ struct SummaryView: View {
         request.predicate = NSPredicate(format: "isInPool == YES")
 
         guard let pool = try? context.fetch(request) else {
-            poolCount = 0
-            calledThisMonth = 0
-            calledPeople = []
             neverContactedPeople = []
             recentEvents = []
             currentStreak = 0
@@ -275,7 +191,6 @@ struct SummaryView: View {
             return
         }
 
-        poolCount = pool.count
         peopleByIdentifier = Dictionary(
             uniqueKeysWithValues: pool.compactMap { person in
                 guard let identifier = person.contactIdentifier, !identifier.isEmpty else {
@@ -285,18 +200,9 @@ struct SummaryView: View {
             }
         )
 
-        calledPeople = pool
-            .filter { person in
-                guard let lastCalled = person.lastCalledAt else { return false }
-                return lastCalled >= startOfMonth
-            }
-            .sorted { ($0.lastCalledAt ?? .distantPast) > ($1.lastCalledAt ?? .distantPast) }
-
         neverContactedPeople = pool
             .filter { $0.lastCalledAt == nil }
             .sorted { ($0.displayName ?? "") < ($1.displayName ?? "") }
-
-        calledThisMonth = calledPeople.count
 
         let recentEventsRequest: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
         recentEventsRequest.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
@@ -498,36 +404,6 @@ private struct MonthProgressRing: View {
 }
 
 // MARK: - Reusable Cards
-
-struct StatCard: View {
-    // MARK: - Properties
-    let title: String
-    let value: String
-    let color: Color
-
-    // MARK: - View
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.subheadline)
-                .foregroundStyle(Theme.Palette.textSecondary)
-
-            Text(value)
-                .font(.system(size: 30, weight: .bold, design: .rounded))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [color, color.opacity(0.65)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: 96)
-        .padding()
-        .cardSurface(radius: 18, strokeOpacity: 0.8)
-    }
-}
 
 struct SummarySectionCard<Content: View>: View {
     // MARK: - Properties

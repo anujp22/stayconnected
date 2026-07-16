@@ -13,14 +13,6 @@
 		6A5AD68F2F28EB7800E2F348 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5AD68E2F28EB7800E2F348 /* HomeView.swift */; };
 		6A5AD6932F28EC4900E2F348 /* ButtonStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5AD6922F28EC4900E2F348 /* ButtonStyles.swift */; };
 		6A5AD6972F28F34E00E2F348 /* PressableCardStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5AD6962F28F34E00E2F348 /* PressableCardStyle.swift */; };
-		6AF10A0100000000000000B2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0100000000000000B1 /* Theme.swift */; };
-		6AF10A0200000000000000B2 /* Surfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0200000000000000B1 /* Surfaces.swift */; };
-		6AF10A0300000000000000B2 /* CircularIconButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0300000000000000B1 /* CircularIconButton.swift */; };
-		6AF10A0400000000000000B2 /* FloatingTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0400000000000000B1 /* FloatingTabBar.swift */; };
-		6AF10A0500000000000000B2 /* StreakFlame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0500000000000000B1 /* StreakFlame.swift */; };
-		6AF10A0600000000000000B2 /* ActivityHeatmap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0600000000000000B1 /* ActivityHeatmap.swift */; };
-		6AF10A0700000000000000B2 /* ContactAvatarInlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0700000000000000B1 /* ContactAvatarInlineView.swift */; };
-		6AF10A0800000000000000B2 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0800000000000000B1 /* Haptics.swift */; };
 		6A5AD69D2F28F55F00E2F348 /* ContactRowCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5AD69C2F28F55F00E2F348 /* ContactRowCard.swift */; };
 		6A5AD6AD2F2CD67900E2F348 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5AD6AC2F2CD67900E2F348 /* AppShellView.swift */; };
 		6AA9DADA2E8A2C640016CA81 /* AppSettings+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AA9DAD92E8A2C5A0016CA81 /* AppSettings+Helpers.swift */; };
@@ -34,6 +26,14 @@
 		6AD1D9852E60AF4B00960473 /* Person+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AD1D9822E60A97800960473 /* Person+Helpers.swift */; };
 		6AE250F82E8A399D00D36CA5 /* Date+StartOfDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AE250F72E8A399300D36CA5 /* Date+StartOfDay.swift */; };
 		6AE250FA2E8A39E300D36CA5 /* DailyPick+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AE250F92E8A39D800D36CA5 /* DailyPick+Helpers.swift */; };
+		6AF10A0100000000000000B2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0100000000000000B1 /* Theme.swift */; };
+		6AF10A0200000000000000B2 /* Surfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0200000000000000B1 /* Surfaces.swift */; };
+		6AF10A0300000000000000B2 /* CircularIconButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0300000000000000B1 /* CircularIconButton.swift */; };
+		6AF10A0400000000000000B2 /* FloatingTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0400000000000000B1 /* FloatingTabBar.swift */; };
+		6AF10A0500000000000000B2 /* StreakFlame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0500000000000000B1 /* StreakFlame.swift */; };
+		6AF10A0600000000000000B2 /* ActivityHeatmap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0600000000000000B1 /* ActivityHeatmap.swift */; };
+		6AF10A0700000000000000B2 /* ContactAvatarInlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0700000000000000B1 /* ContactAvatarInlineView.swift */; };
+		6AF10A0800000000000000B2 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF10A0800000000000000B1 /* Haptics.swift */; };
 		6AF17A0100000000000000A2 /* PhoneLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF17A0100000000000000A1 /* PhoneLink.swift */; };
 /* End PBXBuildFile section */
 
@@ -60,14 +60,6 @@
 		6A5AD68E2F28EB7800E2F348 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		6A5AD6922F28EC4900E2F348 /* ButtonStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonStyles.swift; sourceTree = "<group>"; };
 		6A5AD6962F28F34E00E2F348 /* PressableCardStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PressableCardStyle.swift; sourceTree = "<group>"; };
-		6AF10A0100000000000000B1 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		6AF10A0200000000000000B1 /* Surfaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Surfaces.swift; sourceTree = "<group>"; };
-		6AF10A0300000000000000B1 /* CircularIconButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircularIconButton.swift; sourceTree = "<group>"; };
-		6AF10A0400000000000000B1 /* FloatingTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingTabBar.swift; sourceTree = "<group>"; };
-		6AF10A0500000000000000B1 /* StreakFlame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakFlame.swift; sourceTree = "<group>"; };
-		6AF10A0600000000000000B1 /* ActivityHeatmap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityHeatmap.swift; sourceTree = "<group>"; };
-		6AF10A0700000000000000B1 /* ContactAvatarInlineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactAvatarInlineView.swift; sourceTree = "<group>"; };
-		6AF10A0800000000000000B1 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		6A5AD69C2F28F55F00E2F348 /* ContactRowCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactRowCard.swift; sourceTree = "<group>"; };
 		6A5AD6AC2F2CD67900E2F348 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
 		6AA9DAD92E8A2C5A0016CA81 /* AppSettings+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppSettings+Helpers.swift"; sourceTree = "<group>"; };
@@ -90,12 +82,23 @@
 		6AD1D9822E60A97800960473 /* Person+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Person+Helpers.swift"; sourceTree = "<group>"; };
 		6AE250F72E8A399300D36CA5 /* Date+StartOfDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+StartOfDay.swift"; sourceTree = "<group>"; };
 		6AE250F92E8A39D800D36CA5 /* DailyPick+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DailyPick+Helpers.swift"; sourceTree = "<group>"; };
+		6AF10A0100000000000000B1 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		6AF10A0200000000000000B1 /* Surfaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Surfaces.swift; sourceTree = "<group>"; };
+		6AF10A0300000000000000B1 /* CircularIconButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircularIconButton.swift; sourceTree = "<group>"; };
+		6AF10A0400000000000000B1 /* FloatingTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingTabBar.swift; sourceTree = "<group>"; };
+		6AF10A0500000000000000B1 /* StreakFlame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakFlame.swift; sourceTree = "<group>"; };
+		6AF10A0600000000000000B1 /* ActivityHeatmap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityHeatmap.swift; sourceTree = "<group>"; };
+		6AF10A0700000000000000B1 /* ContactAvatarInlineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactAvatarInlineView.swift; sourceTree = "<group>"; };
+		6AF10A0800000000000000B1 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		6AF17A0100000000000000A1 /* PhoneLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneLink.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6AD1D9392E5FEC5B00960473 /* StayConnected */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				6AD1DAA02E5FEC5B00960473 /* Exceptions for "StayConnected" folder in "StayConnected" target */,
+			);
 			path = StayConnected;
 			sourceTree = "<group>";
 		};
@@ -110,6 +113,16 @@
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		6AD1DAA02E5FEC5B00960473 /* Exceptions for "StayConnected" folder in "StayConnected" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 6AD1D9362E5FEC5B00960473 /* StayConnected */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		6AD1D9342E5FEC5B00960473 /* Frameworks */ = {
@@ -584,7 +597,7 @@
 				INFOPLIST_KEY_NSContactsUsageDescription = "Used to choose a small set of people and show daily call suggestions. Data stays on device.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_FILE = StayConnected/Info.plist;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -613,7 +626,7 @@
 				INFOPLIST_KEY_NSContactsUsageDescription = "Used to choose a small set of people and show daily call suggestions. Data stays on device.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_FILE = StayConnected/Info.plist;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (

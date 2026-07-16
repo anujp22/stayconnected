@@ -538,4 +538,55 @@ struct StayConnectedTests {
         #expect(preview.title == "You’re all set for today")
     }
 
+    // MARK: - Birthday helpers
+
+    @MainActor
+    @Test func birthdayHelpersMatchOnMonthDayIgnoringYear() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let calendar = Calendar.current
+        let today = calendar.date(from: DateComponents(year: 2026, month: 7, day: 16, hour: 9))!
+
+        let person = Person(context: context)
+        person.id = UUID()
+        person.displayName = "Maya"
+        person.isInPool = true
+        // Birthday stored with a placeholder year — helpers compare month/day.
+        person.birthday = calendar.date(from: DateComponents(year: 1990, month: 7, day: 16))
+
+        #expect(person.isBirthdayToday(asOf: today))
+        #expect(person.daysUntilBirthday(from: today) == 0)
+        #expect(person.birthdayShortLabel(from: today) == "Today")
+    }
+
+    @MainActor
+    @Test func birthdayShortLabelCountsUpcomingDays() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let calendar = Calendar.current
+        let today = calendar.date(from: DateComponents(year: 2026, month: 7, day: 16, hour: 9))!
+
+        let person = Person(context: context)
+        person.id = UUID()
+        person.displayName = "Sam"
+        person.isInPool = true
+        person.birthday = calendar.date(from: DateComponents(year: 2001, month: 7, day: 19))
+
+        #expect(person.isBirthdayToday(asOf: today) == false)
+        #expect(person.daysUntilBirthday(from: today) == 3)
+        #expect(person.birthdayShortLabel(from: today) == "in 3 days")
+    }
+
+    @MainActor
+    @Test func noBirthdayYieldsNilHelpers() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let person = Person(context: context)
+        person.id = UUID()
+        person.displayName = "Jordan"
+        person.isInPool = true
+
+        #expect(person.birthdayMonthDay == nil)
+        #expect(person.daysUntilBirthday() == nil)
+        #expect(person.birthdayShortLabel() == nil)
+        #expect(person.isBirthdayToday() == false)
+    }
+
 }

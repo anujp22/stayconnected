@@ -227,6 +227,7 @@ struct HomeView: View {
                             .cardSurface(radius: 18, strokeOpacity: 0.8)
                         } else {
                             HomeEmptyState(
+                                illustration: "AllDoneMoon",
                                 symbol: "hands.sparkles",
                                 title: "No pick for today",
                                 message: "Tap Generate to create today’s picks. Your monthly progress is still saved below."
@@ -241,6 +242,7 @@ struct HomeView: View {
                     .heroSurface(radius: 24)
                 } else {
                     HomeEmptyState(
+                        illustration: "AllDoneMoon",
                         symbol: "hands.sparkles",
                         title: "No pick for today",
                         message: "Generate a pick or add more people to your pool."
@@ -250,39 +252,53 @@ struct HomeView: View {
                     .cardSurface(radius: 20)
                 }
 
-                // Quick navigation
-                Button {
-                    lightHaptic()
-                    selectedTab = .pool
-                } label: {
-                    Label("View Pool", systemImage: "person.2.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(SecondaryPillButtonStyle())
-                .accessibilityHint("Open your saved relationship pool.")
+                Spacer(minLength: 12)
 
-                Spacer()
-
-                // Action buttons
-                HStack(spacing: 14) {
+                // Action area — one clear primary (Generate), with Pool and
+                // Reset as quiet secondary links so they don't compete with it
+                // or crowd the bottom of the screen.
+                VStack(spacing: 14) {
                     Button(action: {
                         lightHaptic()
                         generateTodayPick()
                     }) {
-                        Label("Generate", systemImage: "sparkles")
+                        Label(hasTodayPick ? "Regenerate Picks" : "Generate Picks", systemImage: "sparkles")
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(PrimaryPillButtonStyle())
                     .accessibilityHint("Create today’s picks using your current rules.")
 
-                    Button(action: {
-                        lightHaptic()
-                        showResetConfirm = true
-                    }) {
-                        Label("Reset Today", systemImage: "arrow.counterclockwise")
+                    HStack(spacing: 16) {
+                        Button {
+                            lightHaptic()
+                            selectedTab = .pool
+                        } label: {
+                            Label("View Pool", systemImage: "person.2")
+                        }
+                        .tint(Theme.Palette.brand)
+                        .accessibilityHint("Open your saved relationship pool.")
+
+                        Spacer()
+
+                        if hasTodayPick {
+                            Button {
+                                lightHaptic()
+                                showResetConfirm = true
+                            } label: {
+                                Label("Reset today", systemImage: "arrow.counterclockwise")
+                            }
+                            .tint(Theme.Palette.textSecondary)
+                            .accessibilityHint("Remove today’s picks so you can generate a fresh set.")
+                        }
                     }
-                    .buttonStyle(SecondaryPillButtonStyle())
-                    .disabled(!hasTodayPick)
-                    .accessibilityHint("Remove today’s picks so you can generate a fresh set.")
+                    .font(.subheadline.weight(.medium))
+                    .padding(.horizontal, 4)
+
+                    Text("Small, steady check-ins build real connection.")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 2)
                 }
                 .confirmationDialog(
                     "Reset today’s pick?",
@@ -311,13 +327,6 @@ struct HomeView: View {
                 } message: {
                     Text("We’ll gently set them aside and suggest someone else instead.")
                 }
-                .padding(.top, 6)
-
-                // Footer text
-                Text("Small consistent breaks build real connections.")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Palette.textSecondary)
-                    .padding(.top, 8)
             }
             .padding()
             .padding(.bottom, Theme.Layout.tabBarClearance)
@@ -726,16 +735,26 @@ private struct HomeHeader: View {
 /// A warm, centered empty state — a soft symbol motif above the copy, so an
 /// empty day still feels inviting rather than blank.
 private struct HomeEmptyState: View {
+    /// Custom asset-catalog illustration; falls back to `symbol` when nil.
+    var illustration: String? = nil
     let symbol: String
     let title: String
     let message: String
 
     var body: some View {
         VStack(spacing: Theme.Space.sm) {
-            Image(systemName: symbol)
-                .font(.system(size: 30, weight: .light))
-                .foregroundStyle(Theme.Palette.brand)
-                .padding(.bottom, 2)
+            if let illustration {
+                Image(illustration)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 84, height: 84)
+                    .padding(.bottom, 2)
+            } else {
+                Image(systemName: symbol)
+                    .font(.system(size: 30, weight: .light))
+                    .foregroundStyle(Theme.Palette.brand)
+                    .padding(.bottom, 2)
+            }
 
             Text(title)
                 .font(.subheadline.weight(.semibold))

@@ -64,7 +64,7 @@ enum Theme {
 
     // MARK: - Signature Gradient
 
-    /// The one brand gradient — brand cyan into deep teal, top-leading to
+    /// The one brand gradient — sage teal into deep pine, top-leading to
     /// bottom-trailing. Reserved for signature moments (Home hero, primary
     /// CTA); using it sparingly is what keeps it feeling special.
     static let brandGradient = LinearGradient(

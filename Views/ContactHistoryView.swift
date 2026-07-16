@@ -10,12 +10,16 @@ struct ContactHistoryView: View {
 
     // MARK: - State
     @State private var events: [ConnectionEvent] = []
+    @State private var showBirthdayEditor = false
+    @State private var birthdayDraft = Date()
 
     // MARK: - View
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Space.lg) {
                 profileCard
+
+                birthdayCard
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text("History")
@@ -43,6 +47,102 @@ struct ContactHistoryView: View {
         .onAppear {
             refreshEvents()
         }
+        .sheet(isPresented: $showBirthdayEditor) {
+            birthdayEditor
+        }
+    }
+
+    // MARK: - Birthday
+
+    private var birthdayCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Birthday", systemImage: "birthday.cake.fill")
+                    .font(.headline)
+                    .foregroundStyle(Theme.Palette.textPrimary)
+
+                Spacer()
+
+                Button(person.birthday == nil ? "Add" : "Edit") {
+                    birthdayDraft = person.birthday ?? defaultBirthdayDraft
+                    showBirthdayEditor = true
+                }
+                .font(.subheadline.weight(.semibold))
+                .tint(Theme.Palette.brand)
+            }
+
+            if let birthday = person.birthday {
+                HStack(spacing: 8) {
+                    Text(birthday.formatted(.dateTime.month(.wide).day()))
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.Palette.textPrimary)
+
+                    if let label = person.birthdayShortLabel() {
+                        Text("· \(label)")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.Palette.accentWarm)
+                    }
+                }
+            } else {
+                Text("Add a birthday to get a gentle reminder on the day.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.Palette.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .cardSurface()
+    }
+
+    private var birthdayEditor: some View {
+        NavigationStack {
+            VStack(spacing: Theme.Space.lg) {
+                DatePicker(
+                    "Birthday",
+                    selection: $birthdayDraft,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.graphical)
+                .tint(Theme.Palette.brand)
+
+                if person.birthday != nil {
+                    Button(role: .destructive) {
+                        saveBirthday(nil)
+                    } label: {
+                        Label("Remove birthday", systemImage: "trash")
+                    }
+                }
+
+                Spacer()
+            }
+            .padding()
+            .background(Theme.Palette.background.ignoresSafeArea())
+            .navigationTitle("Birthday")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { showBirthdayEditor = false }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") { saveBirthday(birthdayDraft) }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+        .presentationDetents([.large])
+    }
+
+    /// A sensible default when adding a birthday for the first time — 30 years
+    /// ago, so the picker opens somewhere reasonable rather than today.
+    private var defaultBirthdayDraft: Date {
+        Calendar.current.date(byAdding: .year, value: -30, to: Date()) ?? Date()
+    }
+
+    private func saveBirthday(_ date: Date?) {
+        person.birthday = date
+        try? context.save()
+        showBirthdayEditor = false
+        Task { try? await NotificationsService.syncBirthdayReminders(in: context) }
     }
 
     // MARK: - Profile Card
