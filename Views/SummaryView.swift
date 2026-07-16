@@ -14,7 +14,6 @@ struct SummaryView: View {
     @State private var selectedPerson: Person?
     @State private var dailyCounts: [Date: Int] = [:]
     @State private var monthlyConnectedCount = 0
-    @State private var monthlyTargetCount = 0
     // MARK: - View
     var body: some View {
         NavigationStack {
@@ -35,9 +34,7 @@ struct SummaryView: View {
 
                     // MARK: Month + Streak Hero
                     SummaryHero(
-                        progress: monthlyProgress,
                         connected: monthlyConnectedCount,
-                        target: monthlyTargetCount,
                         currentStreak: currentStreak,
                         longestStreak: longestStreak,
                         currentStreakLabel: currentStreakLabel,
@@ -187,7 +184,6 @@ struct SummaryView: View {
             longestStreak = 0
             dailyCounts = [:]
             monthlyConnectedCount = 0
-            monthlyTargetCount = 0
             return
         }
 
@@ -224,7 +220,7 @@ struct SummaryView: View {
             longestStreak = streaks.longest
 
             // Bucket every event into its start-of-day for the heatmap, and
-            // count this month's connections for the progress ring.
+            // count this month's connections for the running total.
             var buckets: [Date: Int] = [:]
             var monthCount = 0
             for event in allEvents {
@@ -241,11 +237,6 @@ struct SummaryView: View {
             dailyCounts = [:]
             monthlyConnectedCount = 0
         }
-
-        // Monthly target mirrors Home: picks-per-day across the whole month.
-        let daysInMonth = calendar.range(of: .day, in: .month, for: now)?.count ?? 30
-        let picksPerDay = (try? AppSettings.effective(in: context).picksPerDay) ?? 0
-        monthlyTargetCount = max(picksPerDay, 0) * daysInMonth
     }
 
     private func activityNameLabel(for event: ConnectionEvent) -> String {
@@ -267,11 +258,6 @@ struct SummaryView: View {
     }
 
     // MARK: - Derived Values
-    private var monthlyProgress: Double {
-        guard monthlyTargetCount > 0 else { return 0 }
-        return min(Double(monthlyConnectedCount) / Double(monthlyTargetCount), 1.0)
-    }
-
     private var currentStreakLabel: String {
         streakLabel(for: currentStreak)
     }
@@ -287,12 +273,10 @@ struct SummaryView: View {
 
 // MARK: - Summary Hero
 
-/// The top-of-Summary hero: a month-progress ring paired with the streak
-/// figures. Warm, forward-looking framing — no "behind pace" language.
+/// The top-of-Summary hero: this month's connection count paired with the
+/// streak figures. A running total to celebrate — no target, ratio, or quota.
 private struct SummaryHero: View {
-    let progress: Double
     let connected: Int
-    let target: Int
     let currentStreak: Int
     let longestStreak: Int
     let currentStreakLabel: String
@@ -300,18 +284,14 @@ private struct SummaryHero: View {
 
     var body: some View {
         HStack(spacing: Theme.Space.lg) {
-            MonthProgressRing(
-                progress: progress,
-                connected: connected,
-                target: target
-            )
+            MonthCountMedallion(connected: connected)
 
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("This month")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.Palette.textPrimary)
-                    Text(target > 0 ? "\(connected) of \(target) connections" : "\(connected) connections")
+                    Text(connected == 1 ? "1 connection" : "\(connected) connections")
                         .font(.caption)
                         .foregroundStyle(Theme.Palette.textSecondary)
                 }
@@ -359,46 +339,24 @@ private struct SummaryHero: View {
     }
 }
 
-/// A circular month-progress indicator with the count at its center. The trim
-/// arc is filled with the signature brand gradient and springs to its value.
-private struct MonthProgressRing: View {
-    let progress: Double
+/// A soft medallion showing this month's connection count — the calm,
+/// quota-free replacement for the old progress ring.
+private struct MonthCountMedallion: View {
     let connected: Int
-    let target: Int
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
-            Circle()
-                .stroke(Theme.Palette.divider.opacity(0.5), lineWidth: 10)
+            Circle().fill(Theme.Palette.brand.opacity(0.10))
+            Circle().stroke(Theme.Palette.brand.opacity(0.20), lineWidth: 1.5)
 
-            Circle()
-                .trim(from: 0, to: progress)
-                .stroke(
-                    Theme.brandGradient,
-                    style: StrokeStyle(lineWidth: 10, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .animation(reduceMotion ? nil : .spring(response: 0.6, dampingFraction: 0.85), value: progress)
-
-            VStack(spacing: 0) {
-                Text("\(connected)")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.Palette.textPrimary)
-                if target > 0 {
-                    Text("of \(target)")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.Palette.textSecondary)
-                }
-            }
+            Text("\(connected)")
+                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .foregroundStyle(Theme.brandGradient)
         }
-        .frame(width: 108, height: 108)
+        .frame(width: 96, height: 96)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            target > 0
-            ? "\(connected) of \(target) connections this month"
-            : "\(connected) connections this month"
+            connected == 1 ? "1 connection this month" : "\(connected) connections this month"
         )
     }
 }
