@@ -50,7 +50,6 @@ enum Theme {
     enum Palette {
         static let brand = Color("BrandPrimary")
         static let deep = Color("PrimaryDeep")
-        static let sand = Color("AccentSand")
         /// Warm secondary accent (terracotta) — streaks, celebration, warmth.
         static let accentWarm = Color("AccentWarm")
         static let background = Color("Background")

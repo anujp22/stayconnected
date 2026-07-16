@@ -33,7 +33,6 @@ struct HomeView: View {
     @State private var showResetConfirm = false
     @State private var showingPickDetails = false
     @State private var monthlyConnectedCount = 0
-    @State private var monthlyTargetCount = 0
     @State private var showSnoozeOptions = false
     @State private var snoozeTarget: HomePick?
     @State private var noteDraft = ""
@@ -52,7 +51,7 @@ struct HomeView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
                 let hasTodayPick = !todayPicks.isEmpty
-                let shouldShowProgressBanner = hasTodayPick || monthlyTargetCount > 0
+                let shouldShowProgressBanner = hasTodayPick || monthlyConnectedCount > 0
                 // Header
                 HomeHeader(
                     greeting: greeting,
@@ -164,22 +163,10 @@ struct HomeView: View {
                                     .foregroundStyle(Theme.Palette.brand)
                             }
 
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(alignment: .firstTextBaseline) {
-                                    Text(monthlyReachedLabel)
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                        .foregroundStyle(Theme.Palette.textPrimary)
-                                    Spacer()
-                                    Text(progressMessage)
-                                        .font(.caption)
-                                        .foregroundStyle(Theme.Palette.textSecondary)
-                                }
-
-                                ProgressView(value: monthlyProgress)
-                                    .tint(progressTintColor)
-                                    .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8), value: monthlyProgress)
-                            }
+                            Text(monthlyReachedLabel)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundStyle(Theme.Palette.textPrimary)
                         }
 
                         if hasTodayPick {
@@ -363,11 +350,6 @@ struct HomeView: View {
         Date().formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
     }
 
-    private var monthlyProgress: Double {
-        guard monthlyTargetCount > 0 else { return 0 }
-        return min(Double(monthlyConnectedCount) / Double(monthlyTargetCount), 1.0)
-    }
-
     // Warm, forward-looking copy. We deliberately avoid pace/behind framing —
     // the goal is a gentle nudge, never guilt about a number you "should" hit.
     private var monthlyReachedLabel: String {
@@ -379,23 +361,6 @@ struct HomeView: View {
         default:
             return "\(monthlyConnectedCount) reached this month"
         }
-    }
-
-    private var progressMessage: String {
-        if monthlyConnectedCount == 0 {
-            return "A fresh start"
-        }
-        if monthlyTargetCount > 0, monthlyConnectedCount >= monthlyTargetCount {
-            return "You’re on a roll"
-        }
-        return "Keep it going"
-    }
-
-    private var progressTintColor: Color {
-        if monthlyTargetCount > 0, monthlyConnectedCount >= monthlyTargetCount {
-            return Theme.Palette.success
-        }
-        return Theme.Palette.brand
     }
 
     // MARK: - Private Helpers
@@ -606,35 +571,13 @@ struct HomeView: View {
     private func refreshMonthlyProgress() {
         let calendar = Calendar.current
         let now = Date()
-
         let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? now
-        let range = calendar.range(of: .day, in: .month, for: now)
-        let daysInMonth = range?.count ?? 30
 
-        let picksPerDay: Int
-        do {
-            picksPerDay = max(try AppSettings.effective(in: context).picksPerDay, 0)
-        } catch {
-            monthlyConnectedCount = 0
-            monthlyTargetCount = 0
-            return
-        }
-
-        monthlyTargetCount = picksPerDay * daysInMonth
-
-        // Progress denominator: picksPerDay * daysInMonth. The numerator counts
-        // ConnectionEvents this month, which markCalled already dedups to at most
-        // one per contact per day — so this is "unique contact-days connected"
-        // versus the monthly goal, not a raw tap count.
+        // A simple running count of this month's connections to celebrate — no
+        // target or quota. markCalled already dedups to one per contact per day.
         let request: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
         request.predicate = NSPredicate(format: "date >= %@", startOfMonth as NSDate)
-
-        guard let monthlyConnections = try? context.count(for: request) else {
-            monthlyConnectedCount = 0
-            return
-        }
-
-        monthlyConnectedCount = monthlyConnections
+        monthlyConnectedCount = (try? context.count(for: request)) ?? 0
     }
 
     /// Resolves phone numbers for the given contact identifiers off the main
