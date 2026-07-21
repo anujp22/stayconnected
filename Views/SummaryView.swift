@@ -6,7 +6,6 @@ struct SummaryView: View {
     @Environment(\.managedObjectContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     // MARK: - State
-    @State private var neverContactedPeople: [Person] = []
     @State private var recentEvents: [ConnectionEvent] = []
     @State private var peopleByIdentifier: [String: Person] = [:]
     @State private var currentStreak = 0
@@ -44,42 +43,6 @@ struct SummaryView: View {
                     // MARK: Activity
                     SummarySectionCard(title: "Activity") {
                         ActivityHeatmap(counts: dailyCounts)
-                    }
-
-                    // MARK: Ready to Connect
-                    SummarySectionCard(title: "Ready to connect") {
-                        if neverContactedPeople.isEmpty {
-                            Text("You’ve reached everyone in your pool at least once — nice.")
-                                .font(.subheadline)
-                                .foregroundStyle(Theme.Palette.textSecondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        } else {
-                            VStack(spacing: 0) {
-                                ForEach(neverContactedPeople, id: \.objectID) { person in
-                                    Button {
-                                        selectedPerson = person
-                                    } label: {
-                                        HStack {
-                                            Text(person.displayName ?? "Unknown")
-                                                .font(.subheadline)
-                                                .foregroundStyle(Theme.Palette.textPrimary)
-                                            Spacer()
-                                            Image(systemName: "chevron.right")
-                                                .font(.caption)
-                                                .foregroundStyle(Theme.Palette.textSecondary.opacity(0.7))
-                                        }
-                                        .padding(.vertical, 10)
-                                        .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-
-                                    if person.objectID != neverContactedPeople.last?.objectID {
-                                        Divider()
-                                            .overlay(Theme.Palette.divider)
-                                    }
-                                }
-                            }
-                        }
                     }
 
                     // MARK: Recent Activity
@@ -178,7 +141,6 @@ struct SummaryView: View {
         request.predicate = NSPredicate(format: "isInPool == YES")
 
         guard let pool = try? context.fetch(request) else {
-            neverContactedPeople = []
             recentEvents = []
             currentStreak = 0
             longestStreak = 0
@@ -195,10 +157,6 @@ struct SummaryView: View {
                 return (identifier, person)
             }
         )
-
-        neverContactedPeople = pool
-            .filter { $0.lastCalledAt == nil }
-            .sorted { ($0.displayName ?? "") < ($1.displayName ?? "") }
 
         let recentEventsRequest: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
         recentEventsRequest.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]

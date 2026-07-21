@@ -183,19 +183,6 @@ struct SettingsView: View {
                         )
                         .disabled(!viewModel.remindersEnabled)
                         .accessibilityHint("Choose when StayConnected should remind you each day.")
-
-                        Divider().opacity(0.2)
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Preview")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Theme.Palette.textPrimary)
-
-                            NotificationPreviewBubble(
-                                title: viewModel.reminderPreviewTitle,
-                                message: viewModel.reminderPreviewBody
-                            )
-                        }
                     }
 
                     VStack(spacing: 10) {
@@ -255,12 +242,6 @@ struct SettingsView: View {
             } message: {
                 Text("Daily reminders are turned off in iOS Settings. Enable notifications for StayConnected to receive reminders.")
             }
-            .onChange(of: viewModel.remindersEnabled) { _, _ in
-                try? viewModel.refreshReminderPreview()
-            }
-            .onChange(of: viewModel.reminderTime) { _, _ in
-                try? viewModel.refreshReminderPreview()
-            }
         }
     }
 
@@ -293,62 +274,6 @@ private struct SettingsCard<Content: View>: View {
         }
         .padding()
         .cardSurface(radius: 20)
-    }
-}
-
-/// A mock iOS notification banner so users see roughly what the daily reminder
-/// will look like on their lock screen — app icon, title, and body on a
-/// material card.
-private struct NotificationPreviewBubble: View {
-    let title: String
-    let message: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Theme.brandGradient)
-                .frame(width: 38, height: 38)
-                .overlay(
-                    Image(systemName: "person.2.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                )
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text("StayConnected")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Theme.Palette.textPrimary)
-                    Spacer()
-                    Text("now")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.Palette.textSecondary)
-                }
-
-                Text(title)
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(Theme.Palette.textPrimary)
-                    .lineLimit(1)
-
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(Theme.Palette.textSecondary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.regularMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Theme.Palette.divider.opacity(0.5), lineWidth: 1)
-        )
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Notification preview. \(title). \(message)")
     }
 }
 
