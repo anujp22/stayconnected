@@ -51,12 +51,16 @@ struct HomeView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
                 let hasTodayPick = !todayPicks.isEmpty
-                let shouldShowProgressBanner = hasTodayPick || monthlyConnectedCount > 0
                 // Header
                 HomeHeader(
                     greeting: greeting,
                     dateText: todayDateText,
-                    streak: currentStreak
+                    streak: currentStreak,
+                    canReset: hasTodayPick,
+                    onReset: {
+                        lightHaptic()
+                        showResetConfirm = true
+                    }
                 )
                 .confirmationDialog(
                     "Connect with \((selectedPick ?? todayPicks.first)?.displayName ?? "today’s pick")",
@@ -144,107 +148,64 @@ struct HomeView: View {
                     .accessibilityElement(children: .combine)
                 }
 
-                if shouldShowProgressBanner {
-                    VStack(alignment: .leading, spacing: 14) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack(alignment: .center) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Today’s Picks")
-                                        .font(.headline)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(Theme.Palette.textPrimary)
-                                    Text("Tap a person to view details or connect")
-                                        .font(.subheadline)
-                                        .foregroundStyle(Theme.Palette.textSecondary)
-                                }
-                                Spacer()
-                                Image(systemName: "sparkles")
-                                    .font(.title3)
-                                    .foregroundStyle(Theme.Palette.brand)
-                            }
+                // Today's picks — a light section heading, then a carousel of
+                // big cards (one person per card, swipeable when there's more
+                // than one). Each card carries its own surface so it reads as
+                // the hero of the screen rather than a row inside a box.
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Today’s picks")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(Theme.Palette.textPrimary)
 
-                            Text(monthlyReachedLabel)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundStyle(Theme.Palette.textPrimary)
+                    Spacer()
+
+                    Text(monthlyReachedLabel)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                }
+
+                if hasTodayPick {
+                    HomePicksCarousel(
+                        picks: todayPicks,
+                        justConnectedID: justConnectedID,
+                        onCall: { pick in connectOrPrompt(.tel, pick: pick) },
+                        onMessage: { pick in connectOrPrompt(.sms, pick: pick) },
+                        onDone: { pick in
+                            lightHaptic()
+                            markPickAsCalled(pick)
+                        },
+                        onSnooze: { pick in
+                            snoozeTarget = pick
+                            lightHaptic()
+                            showSnoozeOptions = true
+                        },
+                        onOpenDetails: { pick in
+                            selectedPick = pick
+                            lightHaptic()
+                            showingPickDetails = true
                         }
-
-                        if hasTodayPick {
-                            VStack(spacing: 0) {
-                                ForEach(Array(todayPicks.enumerated()), id: \.element.identifier) { entry in
-                                    let index = entry.offset
-                                    let pick = entry.element
-
-                                    TodayPickRow(
-                                        pick: pick,
-                                        isCelebrating: justConnectedID == pick.identifier,
-                                        onConnect: {
-                                            selectedPick = pick
-                                            lightHaptic()
-                                            showConnectSheet = true
-                                        },
-                                        onDone: {
-                                            lightHaptic()
-                                            markPickAsCalled(pick)
-                                        },
-                                        onSnooze: {
-                                            snoozeTarget = pick
-                                            lightHaptic()
-                                            showSnoozeOptions = true
-                                        },
-                                        onOpenDetails: {
-                                            selectedPick = pick
-                                            lightHaptic()
-                                            showingPickDetails = true
-                                        }
-                                    )
-                                    .transition(
-                                        .move(edge: .trailing).combined(with: .opacity)
-                                    )
-
-                                    if index < todayPicks.count - 1 {
-                                        Divider()
-                                            .overlay(Theme.Palette.divider)
-                                            .padding(.leading, 58)
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .cardSurface(radius: 18, strokeOpacity: 0.8)
-                        } else {
-                            HomeEmptyState(
-                                illustration: "AllDoneMoon",
-                                symbol: "hands.sparkles",
-                                title: "No pick for today",
-                                message: "Tap Generate to create today’s picks. Your monthly progress is still saved below."
-                            )
-                            .padding(.vertical, 14)
-                            .padding(.horizontal, 12)
-                            .cardSurface(radius: 16, strokeOpacity: 0.8)
-                        }
-                    }
-                    .padding(18)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .heroSurface(radius: 24)
+                    )
                 } else {
                     HomeEmptyState(
                         illustration: "AllDoneMoon",
                         symbol: "hands.sparkles",
                         title: "No pick for today",
-                        message: "Generate a pick or add more people to your pool."
+                        message: monthlyConnectedCount > 0
+                            ? "Tap Generate to create today’s picks. Your monthly progress is still saved."
+                            : "Generate a pick or add more people to your pool."
                     )
                     .padding(.vertical, 20)
                     .padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity)
                     .cardSurface(radius: 20)
                 }
 
                 Spacer(minLength: 12)
 
-                // Action area — one clear primary (Generate), with Pool and
-                // Reset as quiet secondary links so they don't compete with it
-                // or crowd the bottom of the screen.
-                VStack(spacing: 14) {
+                // Action area — one clear primary (Generate). Reset lives in the
+                // header's overflow menu, and Pool has its own tab, so nothing
+                // competes with the button or crowds the bottom of the screen.
+                VStack(spacing: 12) {
                     Button(action: {
                         lightHaptic()
                         generateTodayPick()
@@ -254,32 +215,6 @@ struct HomeView: View {
                     }
                     .buttonStyle(PrimaryPillButtonStyle())
                     .accessibilityHint("Create today’s picks using your current rules.")
-
-                    HStack(spacing: 16) {
-                        Button {
-                            lightHaptic()
-                            selectedTab = .pool
-                        } label: {
-                            Label("View Pool", systemImage: "person.2")
-                        }
-                        .tint(Theme.Palette.brand)
-                        .accessibilityHint("Open your saved relationship pool.")
-
-                        Spacer()
-
-                        if hasTodayPick {
-                            Button {
-                                lightHaptic()
-                                showResetConfirm = true
-                            } label: {
-                                Label("Reset today", systemImage: "arrow.counterclockwise")
-                            }
-                            .tint(Theme.Palette.textSecondary)
-                            .accessibilityHint("Remove today’s picks so you can generate a fresh set.")
-                        }
-                    }
-                    .font(.subheadline.weight(.medium))
-                    .padding(.horizontal, 4)
 
                     Text("Small, steady check-ins build real connection.")
                         .font(.footnote)
@@ -336,13 +271,14 @@ struct HomeView: View {
 
     // MARK: - Derived Values
 
-    /// A warm, time-of-day greeting for the header.
+    /// A warm, time-of-day greeting for the header. Shifts across the day —
+    /// morning, afternoon, evening, and a late-night "Good night".
     private var greeting: String {
         switch Calendar.current.component(.hour, from: Date()) {
         case 5..<12: return "Good morning"
         case 12..<17: return "Good afternoon"
-        case 17..<22: return "Good evening"
-        default: return "Hello"
+        case 17..<21: return "Good evening"
+        default: return "Good night"
         }
     }
 
@@ -621,6 +557,18 @@ struct HomeView: View {
         markPickAsCalled(pick)
     }
 
+    /// Connects immediately when we've resolved a number, otherwise falls back
+    /// to the confirmation dialog (which surfaces "No number available").
+    private func connectOrPrompt(_ scheme: PhoneLink.Scheme, pick: HomePick) {
+        if let phone = pick.phoneNumber, !phone.isEmpty {
+            connectAndLog(scheme, value: phone, pick: pick)
+        } else {
+            selectedPick = pick
+            lightHaptic()
+            showConnectSheet = true
+        }
+    }
+
     @discardableResult
     private func connectVia(_ scheme: PhoneLink.Scheme, value: String) -> Bool {
         guard let url = PhoneLink.url(scheme, number: value) else {
@@ -641,35 +589,51 @@ struct HomeView: View {
 
 // MARK: - Home Header
 
-/// The top-of-screen header: a time-aware greeting, the serif app title with
-/// today's date, and the streak flame when there's momentum to celebrate.
+/// The top-of-screen header: a time-aware greeting as the editorial serif line,
+/// today's date beneath it, the streak flame when there's momentum, and a quiet
+/// overflow menu that houses Reset (only surfaced when there are picks to reset).
 private struct HomeHeader: View {
     let greeting: String
     let dateText: String
     let streak: Int
+    let canReset: Bool
+    let onReset: () -> Void
 
     var body: some View {
         HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(greeting)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.Palette.textSecondary)
-
-                Text("StayConnected")
                     .displayTitle()
 
                 Text(dateText)
                     .font(.subheadline)
                     .foregroundStyle(Theme.Palette.textSecondary)
             }
+            .accessibilityElement(children: .combine)
 
             Spacer(minLength: Theme.Space.sm)
 
-            StreakFlame(streak: streak)
-                .padding(.top, 4)
+            HStack(spacing: 10) {
+                StreakFlame(streak: streak)
+
+                if canReset {
+                    Menu {
+                        Button(role: .destructive, action: onReset) {
+                            Label("Reset today’s picks", systemImage: "arrow.counterclockwise")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.Palette.textSecondary)
+                            .frame(width: 34, height: 34)
+                            .background(Circle().fill(Theme.Palette.textSecondary.opacity(0.12)))
+                    }
+                    .accessibilityLabel("More options")
+                }
+            }
+            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -713,14 +677,68 @@ private struct HomeEmptyState: View {
     }
 }
 
-// MARK: - Today Pick Row
+// MARK: - Today Picks Carousel
 
-/// One person in today's set. Presentation only — all actions are delegated to
-/// the closures the Home screen supplies, so this stays free of Core Data.
-private struct TodayPickRow: View {
+/// A swipeable set of big pick cards — one person per page, with page dots when
+/// there's more than one. Presentation only; every action is delegated to the
+/// closures the Home screen supplies, so this stays free of Core Data.
+private struct HomePicksCarousel: View {
+    let picks: [HomePick]
+    let justConnectedID: String?
+    let onCall: (HomePick) -> Void
+    let onMessage: (HomePick) -> Void
+    let onDone: (HomePick) -> Void
+    let onSnooze: (HomePick) -> Void
+    let onOpenDetails: (HomePick) -> Void
+
+    @State private var selection: String?
+
+    /// A fixed height keeps the paged TabView from collapsing and stops the
+    /// layout from jumping as cards with/without notes swap in.
+    private let cardHeight: CGFloat = 348
+
+    var body: some View {
+        Group {
+            if picks.count == 1, let pick = picks.first {
+                card(for: pick)
+            } else {
+                TabView(selection: $selection) {
+                    ForEach(picks, id: \.identifier) { pick in
+                        card(for: pick)
+                            .padding(.bottom, 28) // room for the page dots
+                            .tag(Optional(pick.identifier))
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .always))
+                .indexViewStyle(.page(backgroundDisplayMode: .always))
+            }
+        }
+        .frame(height: cardHeight)
+        .onAppear { if selection == nil { selection = picks.first?.identifier } }
+    }
+
+    private func card(for pick: HomePick) -> some View {
+        HomePickCard(
+            pick: pick,
+            isCelebrating: justConnectedID == pick.identifier,
+            onCall: { onCall(pick) },
+            onMessage: { onMessage(pick) },
+            onDone: { onDone(pick) },
+            onSnooze: { onSnooze(pick) },
+            onOpenDetails: { onOpenDetails(pick) }
+        )
+    }
+}
+
+// MARK: - Home Pick Card
+
+/// One person as a large, tappable card — avatar, name, status, note, and the
+/// primary reach-out actions. The card is the hero of the Home screen.
+private struct HomePickCard: View {
     let pick: HomePick
     let isCelebrating: Bool
-    let onConnect: () -> Void
+    let onCall: () -> Void
+    let onMessage: () -> Void
     let onDone: () -> Void
     let onSnooze: () -> Void
     let onOpenDetails: () -> Void
@@ -728,30 +746,28 @@ private struct TodayPickRow: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(spacing: 10) {
+        VStack(spacing: 14) {
             ContactAvatarInlineView(
                 contactIdentifier: pick.identifier,
-                displayName: pick.displayName
+                displayName: pick.displayName,
+                size: 76
             )
             .overlay(alignment: .bottomTrailing) {
                 if isCelebrating {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.subheadline)
+                        .font(.title3)
                         .foregroundStyle(Theme.Palette.success)
                         .background(Circle().fill(Theme.Palette.card))
                         .transition(.scale.combined(with: .opacity))
                 }
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                // Name gets its own full-width line so it isn't crowded by the
-                // status chip; the chip moves down next to the last-connected
-                // line, where there's room for both.
+            VStack(spacing: 6) {
                 Text(pick.displayName)
-                    .font(.body)
-                    .fontWeight(.medium)
+                    .font(.title2.weight(.bold))
                     .foregroundStyle(Theme.Palette.textPrimary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
                 HStack(spacing: 6) {
                     Chip(
@@ -760,52 +776,69 @@ private struct TodayPickRow: View {
                         fillOpacity: pick.hasConnectedBefore ? 0.16 : 0.14
                     )
                     .fixedSize()
-                    .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.7), value: pick.hasConnectedBefore)
 
                     Text(pick.lastConnectedText)
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundStyle(Theme.Palette.textSecondary)
                         .lineLimit(1)
                 }
 
                 if let note = pick.note, !note.isEmpty {
                     Label(note, systemImage: "quote.opening")
-                        .font(.caption)
+                        .font(.footnote)
                         .italic()
                         .foregroundStyle(Theme.Palette.brand)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 2)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(spacing: 6) {
-                Button(action: onConnect) {
-                    Image(systemName: "phone.fill")
+            Spacer(minLength: 8)
+
+            // Primary reach-out row.
+            HStack(spacing: 10) {
+                Button(action: onCall) {
+                    Label("Call", systemImage: "phone.fill")
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(CircularIconButtonStyle(tint: Theme.Palette.success, weight: .filled, diameter: 34))
-                .accessibilityLabel("Call or message \(pick.displayName)")
-                .accessibilityHint("Opens contact options for this person.")
+                .buttonStyle(PrimaryPillButtonStyle())
+                .accessibilityHint("Call \(pick.displayName).")
 
+                Button(action: onMessage) {
+                    Label("Message", systemImage: "message.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SecondaryPillButtonStyle())
+                .accessibilityHint("Message \(pick.displayName).")
+            }
+
+            // Quiet secondary row: mark done, or defer.
+            HStack {
                 Button(action: onDone) {
-                    Image(systemName: "checkmark")
+                    Label("Done", systemImage: "checkmark")
+                        .font(.subheadline.weight(.semibold))
                 }
-                .buttonStyle(CircularIconButtonStyle(tint: Theme.Palette.brand, diameter: 34))
-                .accessibilityLabel("Mark \(pick.displayName) as connected")
-                .accessibilityHint("Records that you reached out to this person today.")
+                .tint(Theme.Palette.brand)
+                .accessibilityHint("Records that you reached out to \(pick.displayName) today.")
+
+                Spacer()
 
                 Button(action: onSnooze) {
-                    Image(systemName: "moon.zzz")
+                    Label("Not today", systemImage: "moon.zzz")
+                        .font(.subheadline.weight(.medium))
                 }
-                .buttonStyle(CircularIconButtonStyle(tint: Theme.Palette.textSecondary, diameter: 34))
-                .accessibilityLabel("Not today for \(pick.displayName)")
-                .accessibilityHint("Gently defers this person and swaps in someone else.")
+                .tint(Theme.Palette.textSecondary)
+                .accessibilityHint("Gently defers \(pick.displayName) and swaps in someone else.")
             }
-            .fixedSize()
+            .padding(.horizontal, 4)
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 4)
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .heroSurface(radius: Theme.Radius.hero)
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpenDetails)
+        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.7), value: isCelebrating)
     }
 }
 
