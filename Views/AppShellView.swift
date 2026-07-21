@@ -1,3 +1,4 @@
+import Contacts
 import CoreData
 import SwiftUI
 
@@ -96,8 +97,65 @@ struct AppShellView: View {
     }
 
     private func syncReminders() async {
+        // Fill in birthdays from Contacts first so anyone added before birthday
+        // support (or whose card had no birthday at import) gets one — then the
+        // reminder sync below can schedule for them.
+        await backfillBirthdaysFromContacts()
         try? await NotificationsService.syncReminderIfNeeded(in: ctx)
         try? await NotificationsService.syncBirthdayReminders(in: ctx)
+    }
+
+    /// Backfills `birthday` from the address book for pool members who don't have
+    /// one yet. This heals people imported before birthday support existed —
+    /// their birthdays never got read from Contacts. User-set birthdays are left
+    /// untouched (only nil ones are filled). No-ops without Contacts access.
+    private func backfillBirthdaysFromContacts() async {
+        let status = CNContactStore.authorizationStatus(for: .contacts)
+        guard status == .authorized || status == .limited else { return }
+
+        // Which pool people are still missing a birthday, and their contact ids.
+        let request: NSFetchRequest<Person> = Person.fetchRequest()
+        request.predicate = NSPredicate(format: "isInPool == YES AND birthday == nil")
+        guard let people = try? ctx.fetch(request), !people.isEmpty else { return }
+
+        let identifiers = people.compactMap { id -> String? in
+            guard let identifier = id.contactIdentifier, !identifier.isEmpty else { return nil }
+            return identifier
+        }
+        guard !identifiers.isEmpty else { return }
+
+        // Read birthdays off the main thread.
+        let birthdays = await Task.detached(priority: .utility) { () -> [String: Date] in
+            let store = CNContactStore()
+            let keys: [CNKeyDescriptor] = [CNContactBirthdayKey as CNKeyDescriptor]
+
+            var result: [String: Date] = [:]
+            for identifier in identifiers {
+                guard
+                    let contact = try? store.unifiedContact(withIdentifier: identifier, keysToFetch: keys),
+                    let date = Person.birthdayDate(from: contact.birthday)
+                else { continue }
+                result[identifier] = date
+            }
+            return result
+        }.value
+
+        guard !birthdays.isEmpty else { return }
+
+        // Apply on the main context.
+        var changed = false
+        for person in people {
+            guard
+                let identifier = person.contactIdentifier,
+                let date = birthdays[identifier]
+            else { continue }
+            person.birthday = date
+            changed = true
+        }
+
+        if changed, ctx.hasChanges {
+            try? ctx.save()
+        }
     }
 
     private var onboardingBinding: Binding<Bool> {

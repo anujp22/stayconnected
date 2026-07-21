@@ -454,7 +454,7 @@ struct PoolView: View {
                 // Backfill the birthday from Contacts without clobbering one the
                 // user may have set by hand.
                 if person.birthday == nil,
-                   let bday = Self.birthdayDate(from: selection.contact.birthday) {
+                   let bday = Person.birthdayDate(from: selection.contact.birthday) {
                     person.birthday = bday
                 }
             }
@@ -535,21 +535,6 @@ struct PoolView: View {
 
         openURL(url)
         return true
-    }
-
-    /// Builds a storable `Date` from a Contacts birthday. The address book often
-    /// omits the year, so we substitute a neutral placeholder — everything that
-    /// uses `birthday` compares on month/day only.
-    private static func birthdayDate(from components: DateComponents?) -> Date? {
-        guard let components, let month = components.month, let day = components.day else {
-            return nil
-        }
-        var comps = DateComponents()
-        comps.year = components.year ?? 2000
-        comps.month = month
-        comps.day = day
-        comps.hour = 12
-        return Calendar.current.date(from: comps)
     }
 
     private func successHaptic() { Haptics.success() }

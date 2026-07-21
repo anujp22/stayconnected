@@ -64,6 +64,21 @@ extension Person {
 
     // MARK: - Birthday
 
+    /// Builds a storable birthday `Date` from Contacts date components. The
+    /// address book often omits the year, so we substitute a neutral placeholder
+    /// — everything that reads `birthday` compares on month/day only.
+    static func birthdayDate(from components: DateComponents?) -> Date? {
+        guard let components, let month = components.month, let day = components.day else {
+            return nil
+        }
+        var comps = DateComponents()
+        comps.year = components.year ?? 2000
+        comps.month = month
+        comps.day = day
+        comps.hour = 12
+        return Calendar.current.date(from: comps)
+    }
+
     /// The birthday's month and day, ignoring the (often unknown) stored year.
     /// Birthdays are compared by month/day only so reminders recur every year.
     var birthdayMonthDay: (month: Int, day: Int)? {
