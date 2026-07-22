@@ -137,13 +137,29 @@ struct SettingsView: View {
                         )
                     }
 
-                    SettingsCard(title: "How picks work", systemImage: "info.circle") {
-                        Text("• Picks stay the same all day unless you reset them.")
-                        Text("• We try to avoid repeats for at least \(viewModel.minGapDays) days.")
-                        Text("• If your pool is too small, the gap rule may relax.")
+                    NavigationLink {
+                        HowPicksWorkView(
+                            picksPerDay: viewModel.picksPerDay,
+                            minGapDays: viewModel.minGapDays,
+                            recommendedPoolSize: viewModel.recommendedPoolSize
+                        )
+                    } label: {
+                        SettingsCard(title: "How picks work", systemImage: "info.circle") {
+                            HStack(spacing: 8) {
+                                Text("See how your settings and each person’s rhythm choose who to reach out to.")
+                                    .font(.footnote)
+                                    .foregroundStyle(Theme.Palette.textSecondary)
+                                    .multilineTextAlignment(.leading)
+
+                                Spacer(minLength: 4)
+
+                                Image(systemName: "chevron.right")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(Theme.Palette.textSecondary.opacity(0.8))
+                            }
+                        }
                     }
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Palette.textSecondary)
+                    .buttonStyle(.plain)
 
                     SettingsCard(title: "Pool size guidance", systemImage: "person.2") {
                         SettingsRow(
@@ -292,6 +308,215 @@ private struct SettingsRow: View {
                 .foregroundStyle(Theme.Palette.textSecondary)
         }
         .font(.subheadline)
+    }
+}
+
+// MARK: - How Picks Work
+
+/// A calm reference screen explaining how the daily picks are chosen — how the
+/// two Settings knobs and each person's rhythm combine. Reflects the user's
+/// current settings so the numbers and example are true to their setup.
+struct HowPicksWorkView: View {
+    let picksPerDay: Int
+    let minGapDays: Int
+    let recommendedPoolSize: Int
+
+    // The three cadence presets, straight from the model, so this stays in sync
+    // if the day counts ever change.
+    private var tiers: [ContactCadence] { ContactCadence.allCases }
+
+    private let ladder: [(icon: String, text: String)] = [
+        ("pin.fill", "Anyone you’ve pinned comes first."),
+        ("sparkle", "Then people you’ve never reached out to yet."),
+        ("clock.badge.exclamationmark", "Then whoever is most overdue for their own rhythm."),
+        ("arrow.triangle.2.circlepath", "Then people you’ve reached out to least this month."),
+        ("shuffle", "A little gentle randomness in the tail keeps each day fresh.")
+    ]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Theme.Space.lg) {
+                Text("Each day, StayConnected suggests a small handful of people to reconnect with. Here’s how it decides — and how your settings shape it.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.Palette.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                yourSetupCard
+                rhythmsCard
+                howEachDayCard
+                overdueCard
+                overridesCard
+            }
+            .padding()
+            .padding(.bottom, Theme.Layout.tabBarClearance)
+        }
+        .background(Theme.Palette.background.ignoresSafeArea())
+        .navigationTitle("How picks work")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - Cards
+
+    private var yourSetupCard: some View {
+        infoCard(title: "Your setup", systemImage: "slider.horizontal.3") {
+            row("Picks per day", "\(picksPerDay)")
+            divider
+            row("Minimum gap", "\(minGapDays) days")
+            divider
+            row("Suggested pool size", "\(recommendedPoolSize)+")
+
+            Text("The minimum gap is how long after someone is suggested before they can come up again. A pool of about \(recommendedPoolSize) keeps that gap comfortable — with fewer people, names may repeat a little sooner.")
+                .font(.footnote)
+                .foregroundStyle(Theme.Palette.textSecondary)
+                .padding(.top, 2)
+        }
+    }
+
+    private var rhythmsCard: some View {
+        infoCard(title: "Each person’s rhythm", systemImage: "calendar") {
+            Text("You set how often you’d like to keep in touch with each person in the Pool. That target is what “overdue” is measured against.")
+                .font(.footnote)
+                .foregroundStyle(Theme.Palette.textSecondary)
+
+            ForEach(tiers) { tier in
+                divider
+                HStack {
+                    Text(tier.label)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.Palette.textPrimary)
+                    Spacer()
+                    Text(tier.subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                }
+            }
+        }
+    }
+
+    private var howEachDayCard: some View {
+        infoCard(title: "How each day is chosen", systemImage: "list.number") {
+            ForEach(Array(ladder.enumerated()), id: \.offset) { index, step in
+                HStack(alignment: .top, spacing: 12) {
+                    Text("\(index + 1)")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Theme.Palette.brand)
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(Theme.Palette.brand.opacity(0.12)))
+
+                    Text(step.text)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.Palette.textPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.vertical, 2)
+            }
+
+            Text("Snoozed people are skipped entirely, and today’s set stays the same all day unless you Reset it.")
+                .font(.footnote)
+                .foregroundStyle(Theme.Palette.textSecondary)
+                .padding(.top, 4)
+        }
+    }
+
+    private var overdueCard: some View {
+        infoCard(title: "“Overdue for their rhythm”", systemImage: "clock.badge.exclamationmark") {
+            Text("Urgency is relative to each person’s own rhythm — not just raw days. Someone on a Close rhythm becomes due after about two weeks; an Occasional one only after a few months.")
+                .font(.footnote)
+                .foregroundStyle(Theme.Palette.textSecondary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                exampleRow(name: "Sarah · Close", detail: "last talked 3 weeks ago", verdict: "overdue", isOverdue: true)
+                exampleRow(name: "Tom · Occasional", detail: "last talked 2 months ago", verdict: "not due yet", isOverdue: false)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Theme.Palette.brand.opacity(0.06))
+            )
+
+            Text("So Sarah is suggested first — even though you spoke to Tom longer ago — because she’s past her rhythm and he isn’t.")
+                .font(.footnote)
+                .foregroundStyle(Theme.Palette.textSecondary)
+        }
+    }
+
+    private var overridesCard: some View {
+        infoCard(title: "Your overrides", systemImage: "hand.tap") {
+            bullet("Pin", "keeps someone near the top of every day.")
+            bullet("Not today", "gently sets a person aside and swaps in someone else.")
+            bullet("Reset today", "clears today’s set so a fresh one is generated.")
+        }
+    }
+
+    // MARK: - Building Blocks
+
+    @ViewBuilder
+    private func infoCard<Content: View>(
+        title: String,
+        systemImage: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.Palette.brand)
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(Theme.Palette.textPrimary)
+            }
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .cardSurface(radius: 20)
+    }
+
+    private func row(_ title: String, _ value: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(Theme.Palette.textPrimary)
+            Spacer()
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.Palette.brand)
+        }
+    }
+
+    private var divider: some View {
+        Divider().overlay(Theme.Palette.divider)
+    }
+
+    private func bullet(_ term: String, _ detail: String) -> some View {
+        (
+            Text(term).font(.subheadline.weight(.semibold)).foregroundColor(Theme.Palette.textPrimary)
+            + Text(" — \(detail)").font(.subheadline).foregroundColor(Theme.Palette.textSecondary)
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func exampleRow(name: String, detail: String, verdict: String, isOverdue: Bool) -> some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.Palette.textPrimary)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(Theme.Palette.textSecondary)
+            }
+            Spacer()
+            Text(verdict)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isOverdue ? Theme.Palette.brand : Theme.Palette.textSecondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule().fill((isOverdue ? Theme.Palette.brand : Theme.Palette.textSecondary).opacity(0.12))
+                )
+        }
     }
 }
 

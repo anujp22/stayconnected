@@ -1,5 +1,4 @@
 import Contacts
-import ContactsUI
 import CoreData
 import os
 import SwiftUI

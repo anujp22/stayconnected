@@ -461,9 +461,8 @@ struct ContactHistoryView: View {
     }
 
     private func saveNote() {
-        let trimmed = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        person.note = trimmed.isEmpty ? nil : trimmed
-        try? context.save()
+        try? TodayViewModel(context: context)
+            .setNote(noteDraft, forContactIdentifier: person.contactIdentifier ?? "")
         Haptics.light()
     }
 

@@ -8,7 +8,6 @@ struct ContactRowCard: View {
     let phone: String?
     let isPinned: Bool
     var contactIdentifier: String = ""
-    var cadenceLabel: String? = nil
     /// A short birthday hint (e.g. "Today", "in 3 days") shown as a warm 🎂 chip
     /// when set. Only passed for upcoming birthdays so rows stay calm.
     var birthdayLabel: String? = nil
@@ -35,10 +34,6 @@ struct ContactRowCard: View {
                             Image(systemName: "star.fill")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(Theme.Palette.accentWarm)
-                        }
-
-                        if let cadenceLabel {
-                            Chip(text: cadenceLabel, fillOpacity: 0.12)
                         }
                     }
 
