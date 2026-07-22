@@ -17,20 +17,15 @@ struct PoolView: View {
 
     @StateObject private var viewModel: PoolViewModel
 
-    @State private var showConnectSheet = false
+    // The person whose info card is open (tapping a row pushes it).
     @State private var selectedPerson: Person?
     @State private var showContactPicker = false
     @State private var showContactsPermissionAlert = false
 
-    @State private var resolvedPhone: String?
     @State private var connectErrorMessage: String?
     @State private var showConnectError = false
     @State private var addContactErrorMessage: String?
     @State private var showAddContactError = false
-
-    // Multi-select "organize rhythms" mode.
-    @State private var isSelecting = false
-    @State private var selectedIDs: Set<NSManagedObjectID> = []
 
     // MARK: - Initialization
 
@@ -144,24 +139,8 @@ struct PoolView: View {
             .contentMargins(.bottom, Theme.Layout.tabBarClearance, for: .scrollContent)
             .background(Theme.Palette.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(isSelecting ? "Done" : "Select") {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isSelecting.toggle()
-                            if !isSelecting { selectedIDs.removeAll() }
-                        }
-                    }
-                    .fontWeight(isSelecting ? .semibold : .regular)
-                    .tint(Theme.Palette.brand)
-                    .disabled(viewModel.people.isEmpty)
-                    .accessibilityHint(isSelecting ? "Exit selection mode." : "Select several people to set their rhythm at once.")
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                if isSelecting {
-                    bulkCadenceBar
-                }
+            .navigationDestination(item: $selectedPerson) { person in
+                ContactHistoryView(person: person, isTodayPick: false)
             }
         }
         .onAppear {
@@ -172,34 +151,12 @@ struct PoolView: View {
                 viewModel.load()
             }
         }
-        .confirmationDialog(
-            "Connect with \(selectedPerson?.displayName ?? "Contact")",
-            isPresented: $showConnectSheet,
-            titleVisibility: .visible
-        ) {
-            if let phone = resolvedPhone, !phone.isEmpty {
-                Button("Call") {
-                    successHaptic()
-                    connectAndLog(.tel, value: phone)
-                }
-
-                Button("Message") {
-                    successHaptic()
-                    connectAndLog(.sms, value: phone)
-                }
-            } else {
-                Button("No number available", role: .destructive) { }
-                    .disabled(true)
-            }
-
-            Button("Cancel", role: .cancel) { }
-        }
         .sheet(isPresented: $showContactPicker) {
             MultiContactPickerSheet { selections in
                 addContactsToPool(selections)
             }
         }
-        .alert("Can’t Connect", isPresented: $showConnectError) {
+        .alert("Something Went Wrong", isPresented: $showConnectError) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(connectErrorMessage ?? "Something went wrong.")
@@ -270,38 +227,20 @@ struct PoolView: View {
             phone: (nil as String?),
             isPinned: person.isPinned,
             contactIdentifier: person.contactIdentifier ?? "",
-            birthdayLabel: upcomingBirthdayLabel(for: person),
-            isSelecting: isSelecting,
-            isSelected: selectedIDs.contains(person.objectID)
+            birthdayLabel: upcomingBirthdayLabel(for: person)
         ) {
-            if isSelecting {
-                toggleSelection(person)
-            } else {
-                selectedPerson = person
-                resolvePhoneAndPresent(for: person)
-            }
+            // Tap opens the info card — the single place actions live.
+            selectedPerson = person
         }
-        .contentShape(Rectangle())
+        // A tappable rhythm pill sits just left of the chevron: one tap to
+        // change how often, right where you can see it.
+        .overlay(alignment: .trailing) {
+            cadencePill(for: person)
+                .padding(.trailing, 38)
+        }
         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
         .listRowSeparator(.hidden)
         .listRowBackground(Theme.Palette.background)
-        .swipeActions(edge: .leading, allowsFullSwipe: false) {
-            Button {
-                bumpCadence(person, by: +1)
-            } label: {
-                Label("More often", systemImage: "arrow.up")
-            }
-            .tint(Theme.Palette.brand)
-            .disabled(person.contactCadence == .close)
-
-            Button {
-                bumpCadence(person, by: -1)
-            } label: {
-                Label("Less often", systemImage: "arrow.down")
-            }
-            .tint(Theme.Palette.textSecondary)
-            .disabled(person.contactCadence == .occasional)
-        }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
                 removeFromPool(person)
@@ -322,50 +261,34 @@ struct PoolView: View {
         }
     }
 
-    /// The floating bulk-action bar shown in select mode: set every ticked
-    /// person to one rhythm at once — the scale answer to organizing a pool.
-    private var bulkCadenceBar: some View {
-        VStack(spacing: 10) {
-            Text(selectedIDs.isEmpty
-                 ? "Select people to set their rhythm"
-                 : "\(selectedIDs.count) selected")
-                .font(.footnote.weight(.medium))
-                .foregroundStyle(Theme.Palette.textSecondary)
-
-            HStack(spacing: 8) {
-                ForEach(ContactCadence.allCases) { cadence in
-                    Button {
-                        applyCadenceToSelected(cadence)
-                    } label: {
-                        Text(cadence.label)
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(Theme.Palette.brand.opacity(0.14))
-                            )
-                            .foregroundStyle(Theme.Palette.brand)
+    /// A one-tap rhythm control on each row: shows the current cadence and opens
+    /// a menu to change it. Changing it moves the person to another section.
+    private func cadencePill(for person: Person) -> some View {
+        Menu {
+            ForEach(ContactCadence.allCases) { cadence in
+                Button {
+                    setCadence(cadence, for: person)
+                } label: {
+                    if person.contactCadence == cadence {
+                        Label("\(cadence.label) — \(cadence.subtitle)", systemImage: "checkmark")
+                    } else {
+                        Text("\(cadence.label) — \(cadence.subtitle)")
                     }
-                    .buttonStyle(.plain)
-                    .disabled(selectedIDs.isEmpty)
                 }
             }
-            .opacity(selectedIDs.isEmpty ? 0.5 : 1)
+        } label: {
+            HStack(spacing: 3) {
+                Text(person.contactCadence.label)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.bold))
+            }
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(Theme.Palette.brand.opacity(0.12)))
+            .foregroundStyle(Theme.Palette.brand)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(.regularMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Theme.Palette.divider, lineWidth: 1)
-        )
-        .padding(.horizontal, 16)
-        .padding(.bottom, Theme.Layout.tabBarClearance)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .accessibilityLabel("How often for \(person.displayName ?? "contact"): \(person.contactCadence.label). Change.")
     }
 
     // MARK: - Private Helpers
@@ -380,7 +303,7 @@ struct PoolView: View {
         if let lastCalledAt = person.lastCalledAt {
             return "Last connected " + Self.relativeDateFormatter.localizedString(for: lastCalledAt, relativeTo: Date())
         }
-        return "Tap to connect"
+        return "Not connected yet"
     }
 
     /// A birthday chip label for the row, but only within the next week so the
@@ -488,103 +411,21 @@ struct PoolView: View {
         }
     }
 
-    private func resolvePhoneAndPresent(for person: Person) {
-        resolvedPhone = nil
-
-        guard let contactId = person.contactIdentifier, !contactId.isEmpty else {
-            // No contact identifier stored -> can’t resolve phone
-            showConnectSheet = true
-            return
-        }
-
-        // Resolve the number off the main thread, then present. The connect
-        // dialog already handles a nil/empty number ("No number available").
-        Task {
-            resolvedPhone = await Self.resolvePhoneNumber(for: contactId)
-            showConnectSheet = true
-        }
-    }
-
-    private static func resolvePhoneNumber(for identifier: String) async -> String? {
-        await Task.detached(priority: .userInitiated) {
-            let store = CNContactStore()
-            let keys: [CNKeyDescriptor] = [CNContactPhoneNumbersKey as CNKeyDescriptor]
-            guard let contact = try? store.unifiedContact(withIdentifier: identifier, keysToFetch: keys) else {
-                return nil
-            }
-            return contact.phoneNumbers.first?.value.stringValue
-        }.value
-    }
-
-    /// Opens the link and, on success, logs the check-in for the selected
-    /// person so reaching out from the pool also counts automatically.
-    /// (markCalled dedups to one connection per contact per day.)
-    private func connectAndLog(_ scheme: PhoneLink.Scheme, value: String) {
-        guard connectVia(scheme, value: value) else { return }
-        guard let person = selectedPerson else { return }
-        try? TodayViewModel(context: ctx).markCalled(person)
-    }
-
-    @discardableResult
-    private func connectVia(_ scheme: PhoneLink.Scheme, value: String) -> Bool {
-        guard let url = PhoneLink.url(scheme, number: value) else {
-            connectErrorMessage = "Invalid phone number."
-            showConnectError = true
-            return false
-        }
-
-        openURL(url)
-        return true
-    }
-
     private func successHaptic() { Haptics.success() }
 
     // MARK: - Actions
 
-    /// Frequency order, least → most frequent, used to step a person's rhythm
-    /// one notch with a swipe.
-    private static let cadenceByFrequency: [ContactCadence] = [.occasional, .regular, .close]
-
-    /// Nudges one person's rhythm up (more often) or down (less often) a step.
-    private func bumpCadence(_ person: Person, by delta: Int) {
-        let order = Self.cadenceByFrequency
-        guard let index = order.firstIndex(of: person.contactCadence) else { return }
-        let next = min(max(index + delta, 0), order.count - 1)
-        guard next != index else { return }
-
-        person.contactCadence = order[next]
-        saveCadenceChange(errorMessage: "Couldn’t update how often to connect.")
-    }
-
-    private func toggleSelection(_ person: Person) {
-        if selectedIDs.contains(person.objectID) {
-            selectedIDs.remove(person.objectID)
-        } else {
-            selectedIDs.insert(person.objectID)
-        }
-        Haptics.light()
-    }
-
-    /// Sets every ticked person to one rhythm at once, then leaves select mode.
-    private func applyCadenceToSelected(_ cadence: ContactCadence) {
-        guard !selectedIDs.isEmpty else { return }
-        for person in viewModel.people where selectedIDs.contains(person.objectID) {
-            person.contactCadence = cadence
-        }
-        saveCadenceChange(errorMessage: "Couldn’t update how often to connect.")
-        withAnimation(.easeInOut(duration: 0.2)) {
-            selectedIDs.removeAll()
-            isSelecting = false
-        }
-    }
-
-    private func saveCadenceChange(errorMessage: String) {
+    /// Sets one person's rhythm from the row's tap-pill, then reloads so they
+    /// animate into their new section.
+    private func setCadence(_ cadence: ContactCadence, for person: Person) {
+        guard person.contactCadence != cadence else { return }
+        person.contactCadence = cadence
         do {
             if ctx.hasChanges { try ctx.save() }
             viewModel.load()
             successHaptic()
         } catch {
-            connectErrorMessage = errorMessage
+            connectErrorMessage = "Couldn’t update how often to connect."
             showConnectError = true
         }
     }
@@ -615,7 +456,6 @@ struct PoolView: View {
             DispatchQueue.main.async {
                 viewModel.load()
                 selectedPerson = nil
-                resolvedPhone = nil
             }
 
             successHaptic()

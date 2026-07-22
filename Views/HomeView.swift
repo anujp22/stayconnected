@@ -1,17 +1,17 @@
-import Contacts
 import CoreData
 import SwiftUI
-import UIKit
 
 // MARK: - Supporting Types
 private struct HomePick: Equatable {
     // MARK: - Properties
     let identifier: String
     let displayName: String
-    let phoneNumber: String?
     let lastConnectedText: String
     let hasConnectedBefore: Bool
     let note: String?
+    /// True when this person was already logged as connected today — the card
+    /// then shows a calm "Connected today" state instead of the details hint.
+    let connectedToday: Bool
 }
 
 struct HomeView: View {
@@ -19,28 +19,20 @@ struct HomeView: View {
     @Binding var selectedTab: AppTab
 
     // MARK: - Environment
-    @Environment(\.openURL) private var openURL
     @Environment(\.managedObjectContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: - State
-    @State private var showConnectSheet = false
     @State private var connectErrorMessage: String?
     @State private var showConnectError = false
     @State private var todayPicks: [HomePick] = []
-    @State private var selectedPick: HomePick?
     @State private var showResetConfirm = false
-    @State private var showingPickDetails = false
     @State private var monthlyConnectedCount = 0
-    @State private var showSnoozeOptions = false
-    @State private var snoozeTarget: HomePick?
-    @State private var noteDraft = ""
     @State private var poolWarningText: String?
     @State private var currentStreak = 0
-    // Identifier of the pick that was just marked connected, used to play a
-    // brief celebration on its row. Cleared shortly after.
-    @State private var justConnectedID: String?
+    // The person whose info card is open (tapping a pick pushes it).
+    @State private var selectedInfoPerson: Person?
 
     // Remembers the day we last auto-generated (or the user reset) so opening
     // the app repeatedly doesn't regenerate a set the user cleared on purpose.
@@ -62,73 +54,10 @@ struct HomeView: View {
                         showResetConfirm = true
                     }
                 )
-                .confirmationDialog(
-                    "Connect with \((selectedPick ?? todayPicks.first)?.displayName ?? "today’s pick")",
-                    isPresented: $showConnectSheet,
-                    titleVisibility: .visible
-                ) {
-                    if let pick = (selectedPick ?? todayPicks.first),
-                       let phone = pick.phoneNumber, !phone.isEmpty {
-                        Button("Call") {
-                            connectAndLog(.tel, value: phone, pick: pick)
-                        }
-                        Button("Message") {
-                            connectAndLog(.sms, value: phone, pick: pick)
-                        }
-                    } else {
-                        Button("No number available", role: .destructive) { }
-                            .disabled(true)
-                    }
-
-                    Button("Cancel", role: .cancel) { }
-                }
-                .alert("Can’t Connect", isPresented: $showConnectError) {
+                .alert("Something Went Wrong", isPresented: $showConnectError) {
                     Button("OK", role: .cancel) { }
                 } message: {
                     Text(connectErrorMessage ?? "Something went wrong.")
-                }
-                .sheet(isPresented: $showingPickDetails) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text((selectedPick ?? todayPicks.first)?.displayName ?? "No pick")
-                            .font(.title2)
-                            .fontWeight(.bold)
-
-                        if let phone = (selectedPick ?? todayPicks.first)?.phoneNumber {
-                            Text(phone)
-                                .foregroundStyle(Theme.Palette.textSecondary)
-                        }
-
-                        Text((selectedPick ?? todayPicks.first)?.lastConnectedText ?? "Generate a pick or add more people to your pool")
-                            .foregroundStyle(Theme.Palette.textSecondary)
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Note")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Theme.Palette.textPrimary)
-
-                            TextField("e.g. ask about her new job", text: $noteDraft, axis: .vertical)
-                                .lineLimit(1...3)
-                                .textFieldStyle(.roundedBorder)
-
-                            Text("A quick memory jog for next time you reach out.")
-                                .font(.caption)
-                                .foregroundStyle(Theme.Palette.textSecondary)
-                        }
-
-                        Button("Save Note") {
-                            if let pick = (selectedPick ?? todayPicks.first) {
-                                saveNote(for: pick)
-                            }
-                        }
-                        .buttonStyle(PrimaryPillButtonStyle())
-
-                        Spacer()
-                    }
-                    .padding()
-                    .presentationDetents([.medium])
-                    .onAppear {
-                        noteDraft = (selectedPick ?? todayPicks.first)?.note ?? ""
-                    }
                 }
 
                 if let warning = poolWarningText {
@@ -167,22 +96,12 @@ struct HomeView: View {
                 if hasTodayPick {
                     HomePicksCarousel(
                         picks: todayPicks,
-                        justConnectedID: justConnectedID,
-                        onCall: { pick in connectOrPrompt(.tel, pick: pick) },
-                        onMessage: { pick in connectOrPrompt(.sms, pick: pick) },
-                        onDone: { pick in
-                            lightHaptic()
-                            markPickAsCalled(pick)
-                        },
-                        onSnooze: { pick in
-                            snoozeTarget = pick
-                            lightHaptic()
-                            showSnoozeOptions = true
-                        },
                         onOpenDetails: { pick in
-                            selectedPick = pick
                             lightHaptic()
-                            showingPickDetails = true
+                            openInfoCard(for: pick)
+                        },
+                        onUndo: { pick in
+                            undoConnected(pick)
                         }
                     )
                 } else {
@@ -234,25 +153,18 @@ struct HomeView: View {
                 } message: {
                     Text("This will remove today’s saved pick and generate a fresh one the next time you tap Generate.")
                 }
-                .confirmationDialog(
-                    "Not today for \(snoozeTarget?.displayName ?? "this person")?",
-                    isPresented: $showSnoozeOptions,
-                    titleVisibility: .visible
-                ) {
-                    Button("Just for today") {
-                        if let pick = snoozeTarget { snooze(pick, days: 1) }
-                    }
-                    Button("Snooze for a week") {
-                        if let pick = snoozeTarget { snooze(pick, days: 7) }
-                    }
-                    Button("Cancel", role: .cancel) { }
-                } message: {
-                    Text("We’ll gently set them aside and suggest someone else instead.")
-                }
             }
             .padding()
             .padding(.bottom, Theme.Layout.tabBarClearance)
             .background(Theme.Palette.background.ignoresSafeArea())
+            .navigationDestination(item: $selectedInfoPerson) { person in
+                ContactHistoryView(person: person, isTodayPick: true)
+            }
+            .onChange(of: selectedInfoPerson) { _, newValue in
+                // On returning from the info card, reload so any connect / mark /
+                // snooze / note change made in there is reflected on Home.
+                if newValue == nil { refreshTodayPicks() }
+            }
             .onAppear {
                 loadOrAutoGenerate()
             }
@@ -332,7 +244,6 @@ struct HomeView: View {
             withMotion(.easeInOut(duration: 0.25)) {
                 todayPicks = []
             }
-            selectedPick = nil
             refreshMonthlyProgress()
             refreshStreak()
             return
@@ -346,10 +257,10 @@ struct HomeView: View {
             return HomePick(
                 identifier: identifier,
                 displayName: person.displayName ?? "Unknown",
-                phoneNumber: nil,
                 lastConnectedText: lastConnectedText(for: person),
                 hasConnectedBefore: person.lastCalledAt != nil,
-                note: person.note
+                note: person.note,
+                connectedToday: isConnectedToday(person)
             )
         }
 
@@ -357,15 +268,13 @@ struct HomeView: View {
             todayPicks = rebuilt
         }
 
-        selectedPick = todayPicks.first
         refreshMonthlyProgress()
         refreshStreak()
+    }
 
-        let identifiers = todayPicks.map(\.identifier)
-        Task {
-            let numbers = await Self.loadPhoneNumbers(for: identifiers)
-            applyPhoneNumbers(numbers)
-        }
+    private func isConnectedToday(_ person: Person) -> Bool {
+        guard let last = person.lastCalledAt else { return false }
+        return Calendar.current.isDateInToday(last)
     }
 
     /// Runs the given state change with an animation, unless the user has asked
@@ -388,28 +297,6 @@ struct HomeView: View {
         currentStreak = NotificationsService.streaks(from: events).current
     }
 
-    private func applyPhoneNumbers(_ numbers: [String: String]) {
-        guard !numbers.isEmpty else { return }
-
-        todayPicks = todayPicks.map { pick in
-            guard let number = numbers[pick.identifier] else { return pick }
-            return HomePick(
-                identifier: pick.identifier,
-                displayName: pick.displayName,
-                phoneNumber: number,
-                lastConnectedText: pick.lastConnectedText,
-                hasConnectedBefore: pick.hasConnectedBefore,
-                note: pick.note
-            )
-        }
-
-        if let selectedID = selectedPick?.identifier {
-            selectedPick = todayPicks.first { $0.identifier == selectedID }
-        } else {
-            selectedPick = todayPicks.first
-        }
-    }
-
     // MARK: - Actions
     private func generateTodayPick() {
         do {
@@ -417,7 +304,6 @@ struct HomeView: View {
             let picks = try viewModel.generateTodayPicks()
             guard !picks.isEmpty else {
                 todayPicks = []
-                selectedPick = nil
                 return
             }
             refreshTodayPicks()
@@ -441,65 +327,24 @@ struct HomeView: View {
         }
     }
 
-    private func markPickAsCalled(_ pick: HomePick) {
+    /// Opens the rich info card (profile, actions, note, birthday, history) for
+    /// this pick — the single place all connect/mark/snooze/note actions live.
+    private func openInfoCard(for pick: HomePick) {
+        let viewModel = TodayViewModel(context: context)
+        selectedInfoPerson = try? viewModel.person(for: pick.identifier)
+    }
+
+    /// Undoes a mis-tapped "connected today" straight from the card.
+    private func undoConnected(_ pick: HomePick) {
         do {
             let viewModel = TodayViewModel(context: context)
             if let person = try viewModel.person(for: pick.identifier) {
-                try viewModel.markCalled(person)
+                Haptics.light()
+                try viewModel.unmarkConnectedToday(person)
             }
-            celebrateConnection(for: pick.identifier)
-            refreshTodayPicks()
-            refreshMonthlyProgress()
-            refreshStreak()
-        } catch {
-            connectErrorMessage = "Couldn’t mark this contact as called."
-            showConnectError = true
-        }
-    }
-
-    /// The little payoff for reaching out — a success haptic plus a brief badge
-    /// on the person's row. Deliberately short and quiet, in keeping with the
-    /// app's calm tone.
-    private func celebrateConnection(for identifier: String) {
-        successHaptic()
-        withMotion(.spring(response: 0.4, dampingFraction: 0.6)) {
-            justConnectedID = identifier
-        }
-        Task {
-            try? await Task.sleep(for: .seconds(1.4))
-            withMotion(.easeOut(duration: 0.3)) {
-                if justConnectedID == identifier { justConnectedID = nil }
-            }
-        }
-    }
-
-    private func saveNote(for pick: HomePick) {
-        do {
-            let viewModel = TodayViewModel(context: context)
-            try viewModel.setNote(noteDraft, forContactIdentifier: pick.identifier)
-            refreshTodayPicks()
-            showingPickDetails = false
-        } catch {
-            connectErrorMessage = "Couldn’t save this note."
-            showConnectError = true
-        }
-    }
-
-    private func snooze(_ pick: HomePick, days: Int) {
-        do {
-            let viewModel = TodayViewModel(context: context)
-            guard let person = try viewModel.person(for: pick.identifier) else { return }
-
-            // Snooze from the start of the day so "just for today" makes them
-            // eligible again tomorrow, not at the same clock time.
-            let calendar = Calendar.current
-            let base = calendar.startOfDay(for: Date())
-            let until = calendar.date(byAdding: .day, value: days, to: base) ?? Date()
-
-            try viewModel.snoozePick(person, until: until)
             refreshTodayPicks()
         } catch {
-            connectErrorMessage = "Couldn’t snooze this pick."
+            connectErrorMessage = "Couldn’t undo this connection."
             showConnectError = true
         }
     }
@@ -516,26 +361,6 @@ struct HomeView: View {
         monthlyConnectedCount = (try? context.count(for: request)) ?? 0
     }
 
-    /// Resolves phone numbers for the given contact identifiers off the main
-    /// thread. Runs on a detached background task so the Contacts store work
-    /// never blocks UI updates.
-    private static func loadPhoneNumbers(for identifiers: [String]) async -> [String: String] {
-        await Task.detached(priority: .utility) {
-            let store = CNContactStore()
-            let keys: [CNKeyDescriptor] = [CNContactPhoneNumbersKey as CNKeyDescriptor]
-
-            var result: [String: String] = [:]
-            for identifier in identifiers where !identifier.isEmpty {
-                let predicate = CNContact.predicateForContacts(withIdentifiers: [identifier])
-                if let contact = try? store.unifiedContacts(matching: predicate, keysToFetch: keys).first,
-                   let number = contact.phoneNumbers.first?.value.stringValue {
-                    result[identifier] = number
-                }
-            }
-            return result
-        }.value
-    }
-
     private static let relativeDateFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
@@ -549,42 +374,7 @@ struct HomeView: View {
         return "Not connected yet"
     }
 
-    /// Opens the call/message link and, when it actually launches, records the
-    /// check-in automatically — so reaching out is the only step the user takes.
-    /// (markCalled dedups to one connection per contact per day.)
-    private func connectAndLog(_ scheme: PhoneLink.Scheme, value: String, pick: HomePick) {
-        guard connectVia(scheme, value: value) else { return }
-        markPickAsCalled(pick)
-    }
-
-    /// Connects immediately when we've resolved a number, otherwise falls back
-    /// to the confirmation dialog (which surfaces "No number available").
-    private func connectOrPrompt(_ scheme: PhoneLink.Scheme, pick: HomePick) {
-        if let phone = pick.phoneNumber, !phone.isEmpty {
-            connectAndLog(scheme, value: phone, pick: pick)
-        } else {
-            selectedPick = pick
-            lightHaptic()
-            showConnectSheet = true
-        }
-    }
-
-    @discardableResult
-    private func connectVia(_ scheme: PhoneLink.Scheme, value: String) -> Bool {
-        guard let url = PhoneLink.url(scheme, number: value) else {
-            connectErrorMessage = "No valid phone number for this contact."
-            showConnectError = true
-            return false
-        }
-
-        successHaptic()
-        openURL(url)
-        return true
-    }
-
     private func lightHaptic() { Haptics.light() }
-
-    private func successHaptic() { Haptics.success() }
 }
 
 // MARK: - Home Header
@@ -684,18 +474,14 @@ private struct HomeEmptyState: View {
 /// closures the Home screen supplies, so this stays free of Core Data.
 private struct HomePicksCarousel: View {
     let picks: [HomePick]
-    let justConnectedID: String?
-    let onCall: (HomePick) -> Void
-    let onMessage: (HomePick) -> Void
-    let onDone: (HomePick) -> Void
-    let onSnooze: (HomePick) -> Void
     let onOpenDetails: (HomePick) -> Void
+    let onUndo: (HomePick) -> Void
 
     @State private var selection: String?
 
     /// A fixed height keeps the paged TabView from collapsing and stops the
     /// layout from jumping as cards with/without notes swap in.
-    private let cardHeight: CGFloat = 348
+    private let cardHeight: CGFloat = 300
 
     var body: some View {
         Group {
@@ -720,28 +506,22 @@ private struct HomePicksCarousel: View {
     private func card(for pick: HomePick) -> some View {
         HomePickCard(
             pick: pick,
-            isCelebrating: justConnectedID == pick.identifier,
-            onCall: { onCall(pick) },
-            onMessage: { onMessage(pick) },
-            onDone: { onDone(pick) },
-            onSnooze: { onSnooze(pick) },
-            onOpenDetails: { onOpenDetails(pick) }
+            onOpenDetails: { onOpenDetails(pick) },
+            onUndo: { onUndo(pick) }
         )
     }
 }
 
 // MARK: - Home Pick Card
 
-/// One person as a large, tappable card — avatar, name, status, note, and the
-/// primary reach-out actions. The card is the hero of the Home screen.
+/// One person as a large card. It's a single tappable surface that opens the
+/// full info card (where Call / Message / Done / Not today live). When the
+/// person has already been reached today it shows a calm "Connected today"
+/// state with an Undo instead of the details hint.
 private struct HomePickCard: View {
     let pick: HomePick
-    let isCelebrating: Bool
-    let onCall: () -> Void
-    let onMessage: () -> Void
-    let onDone: () -> Void
-    let onSnooze: () -> Void
     let onOpenDetails: () -> Void
+    let onUndo: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -752,15 +532,6 @@ private struct HomePickCard: View {
                 displayName: pick.displayName,
                 size: 76
             )
-            .overlay(alignment: .bottomTrailing) {
-                if isCelebrating {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(Theme.Palette.success)
-                        .background(Circle().fill(Theme.Palette.card))
-                        .transition(.scale.combined(with: .opacity))
-                }
-            }
 
             VStack(spacing: 6) {
                 Text(pick.displayName)
@@ -769,19 +540,10 @@ private struct HomePickCard: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
 
-                HStack(spacing: 6) {
-                    Chip(
-                        text: pick.hasConnectedBefore ? "Connected" : "New",
-                        tint: pick.hasConnectedBefore ? Theme.Palette.success : Theme.Palette.brand,
-                        fillOpacity: pick.hasConnectedBefore ? 0.16 : 0.14
-                    )
-                    .fixedSize()
-
-                    Text(pick.lastConnectedText)
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.Palette.textSecondary)
-                        .lineLimit(1)
-                }
+                Text(pick.lastConnectedText)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.Palette.textSecondary)
+                    .lineLimit(1)
 
                 if let note = pick.note, !note.isEmpty {
                     Label(note, systemImage: "quote.opening")
@@ -796,49 +558,61 @@ private struct HomePickCard: View {
 
             Spacer(minLength: 8)
 
-            // Primary reach-out row.
-            HStack(spacing: 10) {
-                Button(action: onCall) {
-                    Label("Call", systemImage: "phone.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(PrimaryPillButtonStyle())
-                .accessibilityHint("Call \(pick.displayName).")
-
-                Button(action: onMessage) {
-                    Label("Message", systemImage: "message.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(SecondaryPillButtonStyle())
-                .accessibilityHint("Message \(pick.displayName).")
-            }
-
-            // Quiet secondary row: mark done, or defer.
-            HStack {
-                Button(action: onDone) {
-                    Label("Done", systemImage: "checkmark")
+            if pick.connectedToday {
+                // Reached today — no Done / Not today, just a calm confirmation
+                // and an Undo for mis-taps.
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Theme.Palette.success)
+                    Text("Connected today")
                         .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.Palette.textPrimary)
+
+                    Spacer()
+
+                    Button("Undo", action: onUndo)
+                        .font(.subheadline.weight(.semibold))
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Theme.Palette.textSecondary)
                 }
-                .tint(Theme.Palette.brand)
-                .accessibilityHint("Records that you reached out to \(pick.displayName) today.")
+                .padding(.horizontal, 4)
+            } else {
+                HStack(spacing: 6) {
+                    Chip(
+                        text: pick.hasConnectedBefore ? "Connected before" : "New",
+                        tint: pick.hasConnectedBefore ? Theme.Palette.success : Theme.Palette.brand,
+                        fillOpacity: pick.hasConnectedBefore ? 0.16 : 0.14
+                    )
+                    .fixedSize()
 
-                Spacer()
+                    Spacer()
 
-                Button(action: onSnooze) {
-                    Label("Not today", systemImage: "moon.zzz")
+                    Label("Tap for details", systemImage: "chevron.right")
+                        .labelStyle(TrailingIconLabelStyle())
                         .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Theme.Palette.brand)
                 }
-                .tint(Theme.Palette.textSecondary)
-                .accessibilityHint("Gently defers \(pick.displayName) and swaps in someone else.")
+                .padding(.horizontal, 4)
             }
-            .padding(.horizontal, 4)
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .heroSurface(radius: Theme.Radius.hero)
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpenDetails)
-        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.7), value: isCelebrating)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: pick.connectedToday)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Opens \(pick.displayName)’s details and actions.")
+    }
+}
+
+/// Puts a label's icon after its title (SwiftUI defaults to icon-first).
+private struct TrailingIconLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.title
+            configuration.icon.font(.caption.weight(.bold))
+        }
     }
 }
 

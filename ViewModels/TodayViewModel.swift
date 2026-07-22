@@ -121,6 +121,41 @@ final class TodayViewModel: ObservableObject {
         }
     }
 
+    /// Reverses a same-day "mark connected": deletes today's logged connection
+    /// for this person, decrements the monthly count, and recomputes
+    /// `lastCalledAt` from whatever history remains (nil if none). The escape
+    /// hatch for a mis-tapped Call/Message/Done.
+    func unmarkConnectedToday(_ person: Person) throws {
+        guard let identifier = person.contactIdentifier else { return }
+
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: Date())
+        guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else { return }
+
+        let todaysRequest: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
+        todaysRequest.predicate = NSPredicate(
+            format: "contactIdentifier == %@ AND date >= %@ AND date < %@",
+            identifier, startOfDay as NSDate, endOfDay as NSDate
+        )
+        let todays = try ctx.fetch(todaysRequest)
+        guard !todays.isEmpty else { return }
+
+        todays.forEach { ctx.delete($0) }
+        person.timesPickedThisMonth = max(0, person.timesPickedThisMonth - Int16(todays.count))
+
+        // Fall back to the most recent remaining connection, if any.
+        let remainingRequest: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
+        remainingRequest.predicate = NSPredicate(format: "contactIdentifier == %@", identifier)
+        remainingRequest.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
+        remainingRequest.fetchLimit = 1
+        person.lastCalledAt = try ctx.fetch(remainingRequest).first?.date
+
+        try ctx.save()
+        Task {
+            try? await NotificationsService.syncReminderIfNeeded(in: ctx)
+        }
+    }
+
     func poolCount() throws -> Int {
         let req: NSFetchRequest<Person> = Person.fetchRequest()
         req.predicate = NSPredicate(format: "isInPool == YES")

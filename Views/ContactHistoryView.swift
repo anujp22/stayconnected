@@ -1,23 +1,53 @@
+import Contacts
 import CoreData
 import SwiftUI
 
 struct ContactHistoryView: View {
     // MARK: - Environment
     @Environment(\.managedObjectContext) private var context
+    @Environment(\.openURL) private var openURL
 
     // MARK: - Properties
-    let person: Person
+
+    // Observed so the card reacts live to mark/undo/note/birthday edits.
+    @ObservedObject var person: Person
+
+    /// True when this person is one of today's picks — only then does the
+    /// "Not today" (snooze) action make sense.
+    var isTodayPick: Bool = false
 
     // MARK: - State
     @State private var events: [ConnectionEvent] = []
     @State private var showBirthdayEditor = false
     @State private var birthdayDraft = Date()
 
+    @State private var resolvedPhone: String?
+    @State private var showConnectSheet = false
+    @State private var showSnoozeOptions = false
+    @State private var connectErrorMessage: String?
+    @State private var showConnectError = false
+    @State private var noteDraft = ""
+
+    // MARK: - Derived
+
+    private var connectedToday: Bool {
+        guard let last = person.lastCalledAt else { return false }
+        return Calendar.current.isDateInToday(last)
+    }
+
+    private var noteChanged: Bool {
+        noteDraft.trimmingCharacters(in: .whitespacesAndNewlines) != (person.note ?? "")
+    }
+
     // MARK: - View
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Space.lg) {
                 profileCard
+
+                actionsCard
+
+                noteCard
 
                 birthdayCard
 
@@ -46,10 +76,136 @@ struct ContactHistoryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             refreshEvents()
+            noteDraft = person.note ?? ""
+            Task { resolvedPhone = await Self.resolvePhoneNumber(for: person.contactIdentifier ?? "") }
         }
         .sheet(isPresented: $showBirthdayEditor) {
             birthdayEditor
         }
+        .confirmationDialog(
+            "Connect with \(person.displayName ?? "this contact")",
+            isPresented: $showConnectSheet,
+            titleVisibility: .visible
+        ) {
+            if let phone = resolvedPhone, !phone.isEmpty {
+                Button("Call") { connect(.tel, value: phone) }
+                Button("Message") { connect(.sms, value: phone) }
+            } else {
+                Button("No number available", role: .destructive) { }.disabled(true)
+            }
+            Button("Cancel", role: .cancel) { }
+        }
+        .confirmationDialog(
+            "Not today for \(person.displayName ?? "this person")?",
+            isPresented: $showSnoozeOptions,
+            titleVisibility: .visible
+        ) {
+            Button("Just for today") { snooze(days: 1) }
+            Button("Snooze for a week") { snooze(days: 7) }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("We’ll gently set them aside and suggest someone else instead.")
+        }
+        .alert("Can’t Connect", isPresented: $showConnectError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(connectErrorMessage ?? "Something went wrong.")
+        }
+    }
+
+    // MARK: - Actions Card
+
+    private var actionsCard: some View {
+        VStack(spacing: 12) {
+            if connectedToday {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Theme.Palette.success)
+                    Text("Connected today")
+                        .font(.headline)
+                        .foregroundStyle(Theme.Palette.textPrimary)
+                    Spacer()
+                    Button("Undo") { undoConnected() }
+                        .font(.subheadline.weight(.semibold))
+                        .tint(Theme.Palette.textSecondary)
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    connectOrPrompt(.tel)
+                } label: {
+                    Label("Call", systemImage: "phone.fill").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(PrimaryPillButtonStyle())
+
+                Button {
+                    connectOrPrompt(.sms)
+                } label: {
+                    Label("Message", systemImage: "message.fill").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SecondaryPillButtonStyle())
+            }
+
+            if !connectedToday {
+                HStack {
+                    Button {
+                        markDone()
+                    } label: {
+                        Label("Mark done", systemImage: "checkmark")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .tint(Theme.Palette.brand)
+
+                    if isTodayPick {
+                        Spacer()
+                        Button {
+                            Haptics.light()
+                            showSnoozeOptions = true
+                        } label: {
+                            Label("Not today", systemImage: "moon.zzz")
+                                .font(.subheadline.weight(.medium))
+                        }
+                        .tint(Theme.Palette.textSecondary)
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .cardSurface()
+    }
+
+    // MARK: - Note Card
+
+    private var noteCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Note", systemImage: "quote.opening")
+                .font(.headline)
+                .foregroundStyle(Theme.Palette.textPrimary)
+
+            TextField("e.g. ask about her new job", text: $noteDraft, axis: .vertical)
+                .lineLimit(1...3)
+                .textFieldStyle(.roundedBorder)
+
+            HStack {
+                Text("A quick memory jog for next time you reach out.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.Palette.textSecondary)
+
+                Spacer()
+
+                if noteChanged {
+                    Button("Save") { saveNote() }
+                        .font(.subheadline.weight(.semibold))
+                        .tint(Theme.Palette.brand)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .cardSurface()
     }
 
     // MARK: - Birthday
@@ -238,6 +394,89 @@ struct ContactHistoryView: View {
     private var lastConnectedValue: String {
         guard let lastCalledAt = person.lastCalledAt else { return "Never" }
         return lastCalledAt.formatted(.dateTime.month().day())
+    }
+
+    // MARK: - Actions
+
+    /// Connects immediately when we've resolved a number, otherwise opens the
+    /// dialog (which surfaces "No number available").
+    private func connectOrPrompt(_ scheme: PhoneLink.Scheme) {
+        if let phone = resolvedPhone, !phone.isEmpty {
+            connect(scheme, value: phone)
+        } else {
+            Haptics.light()
+            showConnectSheet = true
+        }
+    }
+
+    /// Opens the call/message link and, when it launches, logs the connection.
+    private func connect(_ scheme: PhoneLink.Scheme, value: String) {
+        guard let url = PhoneLink.url(scheme, number: value) else {
+            connectErrorMessage = "No valid phone number for this contact."
+            showConnectError = true
+            return
+        }
+        Haptics.success()
+        openURL(url)
+        logConnection()
+    }
+
+    private func markDone() {
+        Haptics.success()
+        logConnection()
+    }
+
+    private func logConnection() {
+        do {
+            try TodayViewModel(context: context).markCalled(person)
+            refreshEvents()
+        } catch {
+            connectErrorMessage = "Couldn’t record this connection."
+            showConnectError = true
+        }
+    }
+
+    private func undoConnected() {
+        do {
+            Haptics.light()
+            try TodayViewModel(context: context).unmarkConnectedToday(person)
+            refreshEvents()
+        } catch {
+            connectErrorMessage = "Couldn’t undo this connection."
+            showConnectError = true
+        }
+    }
+
+    private func snooze(days: Int) {
+        do {
+            let calendar = Calendar.current
+            let base = calendar.startOfDay(for: Date())
+            let until = calendar.date(byAdding: .day, value: days, to: base) ?? Date()
+            try TodayViewModel(context: context).snoozePick(person, until: until)
+            Haptics.success()
+        } catch {
+            connectErrorMessage = "Couldn’t snooze this pick."
+            showConnectError = true
+        }
+    }
+
+    private func saveNote() {
+        let trimmed = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        person.note = trimmed.isEmpty ? nil : trimmed
+        try? context.save()
+        Haptics.light()
+    }
+
+    private static func resolvePhoneNumber(for identifier: String) async -> String? {
+        guard !identifier.isEmpty else { return nil }
+        return await Task.detached(priority: .userInitiated) {
+            let store = CNContactStore()
+            let keys: [CNKeyDescriptor] = [CNContactPhoneNumbersKey as CNKeyDescriptor]
+            guard let contact = try? store.unifiedContact(withIdentifier: identifier, keysToFetch: keys) else {
+                return nil
+            }
+            return contact.phoneNumbers.first?.value.stringValue
+        }.value
     }
 
     // MARK: - Private Helpers

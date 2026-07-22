@@ -225,6 +225,44 @@ struct StayConnectedTests {
     }
 
     @MainActor
+    @Test func unmarkConnectedTodayRemovesTodaysEventAndRestoresPriorState() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let viewModel = TodayViewModel(context: context)
+
+        let person = Person(context: context)
+        person.id = UUID()
+        person.displayName = "Undo Me"
+        person.contactIdentifier = "undo"
+        person.isInPool = true
+
+        // A genuine connection from a week ago that must survive the undo.
+        let priorDate = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
+        let priorEvent = ConnectionEvent(context: context)
+        priorEvent.id = UUID()
+        priorEvent.date = priorDate
+        priorEvent.contactIdentifier = "undo"
+        person.lastCalledAt = priorDate
+        person.timesPickedThisMonth = 1
+        try context.save()
+
+        // Mark connected today, then undo it.
+        try viewModel.markCalled(person)
+        #expect(Calendar.current.isDateInToday(person.lastCalledAt!))
+
+        try viewModel.unmarkConnectedToday(person)
+
+        let request: NSFetchRequest<ConnectionEvent> = ConnectionEvent.fetchRequest()
+        request.predicate = NSPredicate(format: "contactIdentifier == %@", "undo")
+        let events = try context.fetch(request)
+
+        // Today's event is gone, the prior one remains, the count is back down,
+        // and lastCalledAt falls back to the surviving connection.
+        #expect(events.count == 1)
+        #expect(person.timesPickedThisMonth == 1)
+        #expect(person.lastCalledAt == priorDate)
+    }
+
+    @MainActor
     @Test func resetTodayPicksClearsLastPickedSoContactsBecomeEligibleAgain() throws {
         let context = PersistenceController(inMemory: true).container.viewContext
         let viewModel = TodayViewModel(context: context)

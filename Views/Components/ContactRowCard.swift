@@ -13,11 +13,6 @@ struct ContactRowCard: View {
     /// when set. Only passed for upcoming birthdays so rows stay calm.
     var birthdayLabel: String? = nil
 
-    /// When true the row is in multi-select mode: it shows a selection circle
-    /// instead of the chevron, and `onTap` toggles selection.
-    var isSelecting: Bool = false
-    var isSelected: Bool = false
-
     var onTap: () -> Void = {}
 
     // MARK: - View
@@ -25,13 +20,6 @@ struct ContactRowCard: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 14) {
-                if isSelecting {
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.title3)
-                        .foregroundStyle(isSelected ? Theme.Palette.brand : Theme.Palette.textSecondary.opacity(0.6))
-                        .accessibilityHidden(true)
-                }
-
                 ContactAvatarInlineView(
                     contactIdentifier: contactIdentifier,
                     displayName: name
@@ -78,11 +66,9 @@ struct ContactRowCard: View {
 
                 Spacer()
 
-                if !isSelecting {
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Theme.Palette.textSecondary.opacity(0.8))
-                }
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.Palette.textSecondary.opacity(0.8))
             }
             .padding()
             .frame(maxWidth: .infinity)
